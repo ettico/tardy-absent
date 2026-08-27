@@ -12,7 +12,10 @@ api.interceptors.request.use((config) => {
 
 export function apiErrorMessage(err: unknown, fallback = 'אירעה שגיאה, נסי שוב'): string {
   if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { error?: string } | undefined;
+    if (!err.response) {
+      return 'לא ניתן להתחבר לשרת. יש לוודא שהשרת (npm run dev בתיקיית server) פועל.';
+    }
+    const data = err.response.data as { error?: string } | undefined;
     if (data?.error) return data.error;
   }
   return fallback;
