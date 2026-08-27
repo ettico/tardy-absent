@@ -4,6 +4,7 @@ import { api, apiErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
+import Breadcrumbs from '../components/Breadcrumbs';
 import type { ClassRoom, Student } from '../types';
 
 export default function ClassPage() {
@@ -18,6 +19,7 @@ export default function ClassPage() {
   const [showImport, setShowImport] = useState(false);
   const [showRenameClass, setShowRenameClass] = useState(false);
   const [filterText, setFilterText] = useState('');
+  const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
 
   const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'SECRETARY';
 
@@ -38,6 +40,9 @@ export default function ClassPage() {
   }
 
   async function handleAction(studentId: string, action: 'late' | 'absence' | 'release') {
+    const key = `${studentId}:${action}`;
+    if (pendingActions.has(key)) return;
+    setPendingActions((prev) => new Set(prev).add(key));
     try {
       const res = await api.post(`/students/${studentId}/${action}`, scopeParams);
       if (res.data.ok === false) {
@@ -48,6 +53,12 @@ export default function ClassPage() {
       load();
     } catch (err) {
       showToast(apiErrorMessage(err), true);
+    } finally {
+      setPendingActions((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   }
 
@@ -63,6 +74,7 @@ export default function ClassPage() {
 
   return (
     <div>
+      <Breadcrumbs items={[{ label: 'שכבות וכיתות', to: '/' }, { label: `כיתה ${classRoom.name}` }]} />
       <div className="page-header">
         <div>
           <h1>כיתה {classRoom.name}</h1>
@@ -114,7 +126,13 @@ export default function ClassPage() {
         {(classRoom.students ?? [])
           .filter((s) => s.fullName.includes(filterText.trim()))
           .map((student) => (
-            <StudentRow key={student.id} student={student} canEdit={canEdit} onAction={handleAction} />
+            <StudentRow
+              key={student.id}
+              student={student}
+              canEdit={canEdit}
+              onAction={handleAction}
+              pendingActions={pendingActions}
+            />
           ))}
         {(classRoom.students ?? []).length > 0 &&
           (classRoom.students ?? []).filter((s) => s.fullName.includes(filterText.trim())).length === 0 && (
@@ -166,11 +184,14 @@ function StudentRow({
   student,
   canEdit,
   onAction,
+  pendingActions,
 }: {
   student: Student;
   canEdit: boolean;
   onAction: (studentId: string, action: 'late' | 'absence' | 'release') => void;
+  pendingActions: Set<string>;
 }) {
+  const isPending = (action: 'late' | 'absence' | 'release') => pendingActions.has(`${student.id}:${action}`);
   return (
     <div className="student-row">
       <div className="student-name-wrap">
@@ -195,13 +216,25 @@ function StudentRow({
       </div>
       {canEdit && (
         <div className="action-buttons">
-          <button className="btn btn-late btn-sm" onClick={() => onAction(student.id, 'late')}>
+          <button
+            className="btn btn-late btn-sm"
+            disabled={isPending('late')}
+            onClick={() => onAction(student.id, 'late')}
+          >
             איחור
           </button>
-          <button className="btn btn-absence btn-sm" onClick={() => onAction(student.id, 'absence')}>
+          <button
+            className="btn btn-absence btn-sm"
+            disabled={isPending('absence')}
+            onClick={() => onAction(student.id, 'absence')}
+          >
             חיסור
           </button>
-          <button className="btn btn-release btn-sm" onClick={() => onAction(student.id, 'release')}>
+          <button
+            className="btn btn-release btn-sm"
+            disabled={isPending('release')}
+            onClick={() => onAction(student.id, 'release')}
+          >
             שחרור
           </button>
         </div>

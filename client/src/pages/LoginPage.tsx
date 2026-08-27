@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, apiErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 import type { AuthUser } from '../types';
 
 export default function LoginPage() {
@@ -45,13 +46,7 @@ export default function LoginPage() {
           </div>
           <div className="form-field">
             <label htmlFor="password">סיסמה</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <PasswordInput id="password" value={password} onChange={setPassword} required />
           </div>
           {error && <p className="error-text">{error}</p>}
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>

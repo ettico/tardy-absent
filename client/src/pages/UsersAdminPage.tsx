@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api, apiErrorMessage } from '../api/client';
 import { useInstitution } from '../context/InstitutionContext';
 import Modal from '../components/Modal';
+import PasswordInput from '../components/PasswordInput';
 import type { AppUser } from '../types';
 
 const ROLE_LABELS: Record<string, string> = { SECRETARY: 'מזכירה', PRINCIPAL: 'מנהלת בית ספר' };
@@ -11,6 +12,7 @@ export default function UsersAdminPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [showAddInstitution, setShowAddInstitution] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
   function loadUsers() {
     api.get<AppUser[]>('/users').then((res) => setUsers(res.data));
@@ -72,7 +74,10 @@ export default function UsersAdminPage() {
               <td>{ROLE_LABELS[u.role]}</td>
               <td>{u.institution?.name}</td>
               <td>{u.email}</td>
-              <td>
+              <td className="action-buttons">
+                <button className="btn btn-outline btn-sm" onClick={() => setEditingUser(u)}>
+                  עדכון פרטים
+                </button>
                 <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u.id)}>
                   מחיקה
                 </button>
@@ -104,6 +109,17 @@ export default function UsersAdminPage() {
           onClose={() => setShowAddUser(false)}
           onCreated={() => {
             setShowAddUser(false);
+            loadUsers();
+          }}
+        />
+      )}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          institutions={institutions}
+          onClose={() => setEditingUser(null)}
+          onUpdated={() => {
+            setEditingUser(null);
             loadUsers();
           }}
         />
@@ -219,7 +235,7 @@ function AddUserModal({
         </div>
         <div className="form-field">
           <label>סיסמה (לפחות 6 תווים)</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+          <PasswordInput value={password} onChange={setPassword} required minLength={6} />
         </div>
         <div className="form-field">
           <label>אימייל (למנהלת - חובה לצורך התראות)</label>
@@ -232,6 +248,95 @@ function AddUserModal({
           </button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             הוספה
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function EditUserModal({
+  user,
+  institutions,
+  onClose,
+  onUpdated,
+}: {
+  user: AppUser;
+  institutions: { id: string; name: string }[];
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [fullName, setFullName] = useState(user.fullName);
+  const [email, setEmail] = useState(user.email ?? '');
+  const [role, setRole] = useState<'SECRETARY' | 'PRINCIPAL'>(user.role as 'SECRETARY' | 'PRINCIPAL');
+  const [institutionId, setInstitutionId] = useState(user.institutionId ?? institutions[0]?.id ?? '');
+  const [newPassword, setNewPassword] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await api.patch(`/users/${user.id}`, {
+        fullName,
+        email,
+        role,
+        institutionId,
+        ...(newPassword ? { password: newPassword } : {}),
+      });
+      onUpdated();
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title={`עדכון פרטי ${user.fullName}`} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div className="form-field">
+          <label>שם משתמש (לא ניתן לשינוי)</label>
+          <input value={user.username} disabled />
+        </div>
+        <div className="form-field">
+          <label>תפקיד</label>
+          <select value={role} onChange={(e) => setRole(e.target.value as 'SECRETARY' | 'PRINCIPAL')}>
+            <option value="SECRETARY">מזכירה</option>
+            <option value="PRINCIPAL">מנהלת בית ספר</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label>מוסד</label>
+          <select value={institutionId} onChange={(e) => setInstitutionId(e.target.value)}>
+            {institutions.map((inst) => (
+              <option key={inst.id} value={inst.id}>
+                {inst.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-field">
+          <label>שם מלא</label>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+        </div>
+        <div className="form-field">
+          <label>אימייל</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="form-field">
+          <label>איפוס סיסמה (השאירי ריק כדי לא לשנות)</label>
+          <PasswordInput value={newPassword} onChange={setNewPassword} minLength={6} />
+        </div>
+        {error && <p className="error-text">{error}</p>}
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            ביטול
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            שמירה
           </button>
         </div>
       </form>

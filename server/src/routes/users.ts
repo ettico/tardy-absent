@@ -59,6 +59,29 @@ router.post('/', async (req, res) => {
   res.status(201).json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
 });
 
+const updateSchema = z.object({
+  fullName: z.string().min(2).optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  role: z.enum(['SECRETARY', 'PRINCIPAL']).optional(),
+  institutionId: z.string().min(1).optional(),
+  password: z.string().min(6).optional().or(z.literal('')),
+});
+
+router.patch('/:id', async (req, res) => {
+  const parsed = updateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'פרטים לא תקינים', details: parsed.error.flatten() });
+  }
+  const { password, email, ...rest } = parsed.data;
+
+  const data: Record<string, unknown> = { ...rest };
+  if (email !== undefined) data.email = email || null;
+  if (password) data.passwordHash = await hashPassword(password);
+
+  const user = await prisma.user.update({ where: { id: req.params.id }, data });
+  res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, email: user.email });
+});
+
 router.delete('/:id', async (req, res) => {
   await prisma.user.delete({ where: { id: req.params.id } });
   res.status(204).send();

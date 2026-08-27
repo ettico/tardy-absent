@@ -33,7 +33,7 @@ export async function markAbsence(studentId: string): Promise<ActionResult> {
   if (existingLateToday) {
     return {
       ok: false,
-      message: `לא ניתן לסמן חיסור: לתלמידה כבר נרשם היום איחור בשעה ${existingLateToday.time}.`,
+      message: `לא ניתן לסמן חיסור: התלמידה הגיעה היום באיחור (בשעה ${existingLateToday.time}), אין צורך לדווח עליה גם חיסור.`,
     };
   }
 
@@ -41,7 +41,7 @@ export async function markAbsence(studentId: string): Promise<ActionResult> {
     where: { studentId, type: 'ABSENCE', date },
   });
   if (existingAbsenceToday) {
-    return { ok: false, message: 'כבר נרשם חיסור לתלמידה זו היום.' };
+    return { ok: false, message: 'החיסור כבר נרשם לתלמידה זו היום, אין צורך לרשום פעם נוספת.' };
   }
 
   const institutionId = await getInstitutionIdForStudent(studentId);
@@ -50,23 +50,37 @@ export async function markAbsence(studentId: string): Promise<ActionResult> {
     await tx.attendanceEvent.create({ data: { studentId, type: 'ABSENCE', date, semesterId } });
     await tx.student.update({ where: { id: studentId }, data: { totalAbsenceCount: { increment: 1 } } });
   });
-  return { ok: true };
+  return { ok: true, message: 'החיסור עודכן בהצלחה.' };
 }
 
-// Clicking "late" always succeeds and is always a single, uniform action for
-// the secretary - no disabled buttons, no confirmation steps. Every late is
-// added to the semester total. The cycle counter (toward the 8-late
-// assignment requirement) is simply never capped: it keeps climbing to 9,
-// 10, 11... for as long as the assignment isn't submitted. `blocked` is a
-// status flag only (drives the badge, the parent-letter option and the one
-// principal email on the 9th) - it never prevents recording a late.
+// Clicking "late" is a single, uniform action for the secretary - no
+// disabled buttons, no confirmation steps. A student can only arrive late
+// once per day though, so a second click today is rejected with a clear
+// explanation rather than silently double-counting. The cycle counter
+// (toward the 8-late assignment requirement) is never capped: it keeps
+// climbing to 9, 10, 11... across separate days for as long as the
+// assignment isn't submitted. `blocked` is a status flag only (drives the
+// badge, the parent-letter option and the one principal email on the 9th) -
+// it never prevents recording a late.
 export async function markLate(studentId: string): Promise<ActionResult> {
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) throw new NotFoundError();
 
   const date = todayDateString();
   const time = nowTimeString();
+
+  const existingLateToday = await prisma.attendanceEvent.findFirst({
+    where: { studentId, type: 'LATE', date },
+  });
+  if (existingLateToday) {
+    return {
+      ok: false,
+      message: `האיחור כבר נרשם לתלמידה זו היום (בשעה ${existingLateToday.time}), אין צורך לרשום פעם נוספת.`,
+    };
+  }
+
   const institutionId = await getInstitutionIdForStudent(studentId);
+  let wasAbsenceConverted = false;
 
   const result = await prisma.$transaction(async (tx) => {
     const semesterId = await getOrCreateCurrentSemesterId(tx, institutionId);
@@ -76,6 +90,7 @@ export async function markLate(studentId: string): Promise<ActionResult> {
     if (existingAbsenceToday) {
       await tx.attendanceEvent.delete({ where: { id: existingAbsenceToday.id } });
       await tx.student.update({ where: { id: studentId }, data: { totalAbsenceCount: { decrement: 1 } } });
+      wasAbsenceConverted = true;
     }
 
     const newCycleCount = student.cycleLateCount + 1;
@@ -107,7 +122,12 @@ export async function markLate(studentId: string): Promise<ActionResult> {
     );
   }
 
-  return { ok: true, blocked: result.updatedStudent.blocked, justBlocked: result.justBlocked };
+  return {
+    ok: true,
+    blocked: result.updatedStudent.blocked,
+    justBlocked: result.justBlocked,
+    message: wasAbsenceConverted ? 'בוצע עדכון: החיסור הוחלף לאיחור.' : 'האיחור עודכן בהצלחה.',
+  };
 }
 
 export async function markRelease(studentId: string): Promise<ActionResult> {
@@ -122,7 +142,7 @@ export async function markRelease(studentId: string): Promise<ActionResult> {
     await tx.attendanceEvent.create({ data: { studentId, type: 'RELEASE', date, time, semesterId } });
     await tx.student.update({ where: { id: studentId }, data: { totalReleaseCount: { increment: 1 } } });
   });
-  return { ok: true };
+  return { ok: true, message: 'השחרור עודכן בהצלחה.' };
 }
 
 export async function submitAssignment(studentId: string) {

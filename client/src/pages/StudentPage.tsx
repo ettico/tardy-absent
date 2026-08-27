@@ -4,6 +4,7 @@ import { api, apiErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
+import Breadcrumbs from '../components/Breadcrumbs';
 import { toHebrewDateString } from '../utils/hebrewDate';
 import type { Student } from '../types';
 
@@ -18,6 +19,7 @@ export default function StudentPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'SECRETARY';
 
@@ -38,7 +40,8 @@ export default function StudentPage() {
   }
 
   async function handleAction(action: 'late' | 'absence' | 'release') {
-    if (!student) return;
+    if (!student || pendingAction) return;
+    setPendingAction(action);
     try {
       const res = await api.post(`/students/${student.id}/${action}`, scopeParams);
       if (res.data.ok === false) showToast(res.data.message ?? 'הפעולה לא בוצעה', true);
@@ -46,6 +49,8 @@ export default function StudentPage() {
       load();
     } catch (err) {
       showToast(apiErrorMessage(err), true);
+    } finally {
+      setPendingAction(null);
     }
   }
 
@@ -67,16 +72,22 @@ export default function StudentPage() {
   if (!student) return <p className="error-text">תלמידה לא נמצאה</p>;
 
   const assignmentsOwed = student.assignmentsRequired - student.assignmentsSubmitted;
+  const className = student.classRoom?.name;
+  const gradeName = student.classRoom?.grade?.name;
 
   return (
     <div>
+      <Breadcrumbs
+        items={[
+          { label: 'שכבות וכיתות', to: '/' },
+          ...(className ? [{ label: `כיתה ${className}${gradeName ? ` (שכבת ${gradeName})` : ''}`, to: `/classes/${student.classId}` }] : []),
+          { label: student.fullName },
+        ]}
+      />
       <div className="page-header">
         <div>
           <h1>{student.fullName}</h1>
-          <span className="stat-pill">ת.ז. {student.nationalId}</span>{' '}
-          <Link to={`/classes/${student.classId}`} className="stat-pill">
-            חזרה לכיתה
-          </Link>
+          <span className="stat-pill">ת.ז. {student.nationalId}</span>
         </div>
         {canEdit && (
           <div className="action-buttons">
@@ -134,13 +145,21 @@ export default function StudentPage() {
         </div>
         {canEdit && (
           <div className="action-buttons">
-            <button className="btn btn-late" onClick={() => handleAction('late')}>
+            <button className="btn btn-late" disabled={pendingAction === 'late'} onClick={() => handleAction('late')}>
               איחור
             </button>
-            <button className="btn btn-absence" onClick={() => handleAction('absence')}>
+            <button
+              className="btn btn-absence"
+              disabled={pendingAction === 'absence'}
+              onClick={() => handleAction('absence')}
+            >
               חיסור
             </button>
-            <button className="btn btn-release" onClick={() => handleAction('release')}>
+            <button
+              className="btn btn-release"
+              disabled={pendingAction === 'release'}
+              onClick={() => handleAction('release')}
+            >
               שחרור
             </button>
           </div>

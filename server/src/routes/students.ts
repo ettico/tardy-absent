@@ -143,7 +143,7 @@ router.post('/:id/late', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, r
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   try {
     const result = await markLate(student.id);
-    res.status(result.ok ? 200 : 409).json(result);
+    res.json(result);
   } catch (err) {
     if (err instanceof NotFoundError) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
     throw err;
@@ -155,7 +155,7 @@ router.post('/:id/absence', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   const result = await markAbsence(student.id);
-  res.status(result.ok ? 200 : 409).json(result);
+  res.json(result);
 });
 
 router.post('/:id/release', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {

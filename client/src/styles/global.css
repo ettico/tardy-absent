@@ -73,6 +73,8 @@ a {
   position: sticky;
   top: 0;
   z-index: 10;
+  flex-wrap: wrap;
+  row-gap: 0.6rem;
 }
 
 .topbar-title {
@@ -80,6 +82,32 @@ a {
   font-weight: 800;
   color: var(--primary-dark);
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.nav-tab {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.nav-tab:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.nav-tab.active {
+  background: var(--primary-light);
+  color: var(--primary-dark);
 }
 
 .global-search {
@@ -246,6 +274,27 @@ a {
   box-shadow: var(--shadow);
 }
 
+.breadcrumbs {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+.breadcrumbs a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.breadcrumbs a:hover {
+  text-decoration: underline;
+}
+.breadcrumb-current {
+  color: var(--text);
+  font-weight: 600;
+}
+.breadcrumb-sep {
+  color: var(--text-muted);
+  margin: 0 0.2rem;
+}
+
 .page-header {
   display: flex;
   align-items: center;
@@ -340,6 +389,30 @@ a {
 .form-field input:focus,
 .form-field select:focus {
   border-color: var(--primary);
+}
+
+.password-input-wrap {
+  position: relative;
+  display: flex;
+}
+.password-input-wrap input {
+  flex: 1;
+  padding-left: 2.4rem;
+}
+.password-toggle {
+  position: absolute;
+  left: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.2rem;
+  color: var(--text-muted);
+}
+.password-toggle:hover {
+  color: var(--text);
 }
 
 .error-text {

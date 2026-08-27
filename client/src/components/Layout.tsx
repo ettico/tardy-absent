@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useInstitution } from '../context/InstitutionContext';
 import GlobalSearch from './GlobalSearch';
@@ -20,6 +20,33 @@ export default function Layout() {
         <Link to="/" className="topbar-title">
           מערכת איחורים וחיסורים
         </Link>
+        <nav className="topbar-nav">
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+            שכבות וכיתות
+          </NavLink>
+          <NavLink to="/reports/at-risk" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+            תלמידות בחריגה
+          </NavLink>
+          <NavLink
+            to="/reports/institution-summary"
+            className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}
+          >
+            דוח מנהלים
+          </NavLink>
+          <NavLink to="/archive" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+            ארכיון
+          </NavLink>
+          {(user?.role === 'SYSTEM_ADMIN' || user?.role === 'PRINCIPAL') && (
+            <NavLink to="/school-year" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+              מחצית ושנה
+            </NavLink>
+          )}
+          {user?.role === 'SYSTEM_ADMIN' && (
+            <NavLink to="/admin/users" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+              ניהול משתמשים ומוסדות
+            </NavLink>
+          )}
+        </nav>
         <GlobalSearch />
         <div className="topbar-right">
           {user?.role === 'SYSTEM_ADMIN' && institutions.length > 0 && (
@@ -35,13 +62,6 @@ export default function Layout() {
               ))}
             </select>
           )}
-          <Link to="/reports/at-risk">תלמידות בחריגה</Link>
-          <Link to="/reports/institution-summary">דוח מנהלים</Link>
-          <Link to="/archive">ארכיון</Link>
-          {(user?.role === 'SYSTEM_ADMIN' || user?.role === 'PRINCIPAL') && (
-            <Link to="/school-year">מחצית ושנה</Link>
-          )}
-          {user?.role === 'SYSTEM_ADMIN' && <Link to="/admin/users">ניהול משתמשים ומוסדות</Link>}
           {user && <span className="role-badge">{ROLE_LABELS[user.role]}</span>}
           <span>{user?.fullName}</span>
           <button
