@@ -28,19 +28,17 @@ export default function Layout() {
             תלמידות בחריגה
           </NavLink>
           <NavLink
-            to="/reports/institution-summary"
+            to="/management-control"
             className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}
           >
-            דוח מנהלים
+            בקרת מנהלים
           </NavLink>
           <NavLink to="/archive" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
             ארכיון
           </NavLink>
-          {(user?.role === 'SYSTEM_ADMIN' || user?.role === 'PRINCIPAL') && (
-            <NavLink to="/school-year" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
-              מחצית ושנה
-            </NavLink>
-          )}
+          <NavLink to="/school-year" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+            סיום מחצית / מעבר שנה
+          </NavLink>
           {user?.role === 'SYSTEM_ADMIN' && (
             <NavLink to="/admin/users" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
               ניהול משתמשים ומוסדות

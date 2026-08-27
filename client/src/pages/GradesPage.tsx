@@ -60,7 +60,12 @@ export default function GradesPage() {
           <div className="grade-body">
             {grade.classes.length === 0 && <p className="empty-note">אין עדיין כיתות בשכבה זו.</p>}
             {grade.classes.map((cls) => (
-              <Link to={`/classes/${cls.id}`} className="class-tile" key={cls.id}>
+              <Link
+                to={`/classes/${cls.id}`}
+                className="class-tile"
+                key={cls.id}
+                style={{ '--tile-accent': grade.color } as React.CSSProperties}
+              >
                 <span className="class-name">{cls.name}</span>
                 <span className="class-count">{cls._count?.students ?? 0} תלמידות</span>
               </Link>

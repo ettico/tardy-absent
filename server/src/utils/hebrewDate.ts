@@ -19,6 +19,24 @@ async function getHebcal(): Promise<HebcalModule> {
 
 const WEEKDAYS_HE = ['יום ראשון', 'יום שני', 'יום שלישי', 'יום רביעי', 'יום חמישי', 'יום שישי', 'שבת'];
 
+export interface HebrewMonthKey {
+  label: string; // e.g. "אלול תשפ״ו"
+  sortKey: number; // absolute day count of the 1st of the month, for chronological ordering
+}
+
+// isoDate is 'YYYY-MM-DD'. Groups a date into its Hebrew month, for by-month
+// aggregation (e.g. the management dashboard's monthly trend chart).
+export async function toHebrewMonthKey(isoDate: string): Promise<HebrewMonthKey> {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const { HDate, Locale, gematriya } = await getHebcal();
+  const hd = new HDate(date);
+  const monthName = Locale.hebrewStripNikkud(Locale.gettext(hd.getMonthName(), 'he'));
+  const yearLabel = gematriya(hd.getFullYear());
+  const firstOfMonth = new HDate(1, hd.getMonth(), hd.getFullYear());
+  return { label: `${monthName} ${yearLabel}`, sortKey: firstOfMonth.abs() };
+}
+
 // isoDate is 'YYYY-MM-DD'. Parsed as local calendar date (not UTC) to avoid
 // off-by-one-day shifts around midnight in different timezones.
 export async function toHebrewDateString(isoDate: string): Promise<string> {

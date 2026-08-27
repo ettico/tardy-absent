@@ -62,6 +62,25 @@ export default function ClassPage() {
     }
   }
 
+  async function handleSubmitAssignment(studentId: string) {
+    const key = `${studentId}:submit-assignment`;
+    if (pendingActions.has(key)) return;
+    setPendingActions((prev) => new Set(prev).add(key));
+    try {
+      await api.post(`/students/${studentId}/submit-assignment`, scopeParams);
+      showToast('העבודה סומנה כהוגשה, מונה האיחורים מתחיל מחדש');
+      load();
+    } catch (err) {
+      showToast(apiErrorMessage(err), true);
+    } finally {
+      setPendingActions((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
   async function handleDeleteClass() {
     if (!classRoom) return;
     if (!confirm(`למחוק את כיתה ${classRoom.name}? פעולה זו תמחק גם את כל התלמידות והנתונים שלהן.`)) return;
@@ -131,6 +150,7 @@ export default function ClassPage() {
               student={student}
               canEdit={canEdit}
               onAction={handleAction}
+              onSubmitAssignment={handleSubmitAssignment}
               pendingActions={pendingActions}
             />
           ))}
@@ -184,14 +204,17 @@ function StudentRow({
   student,
   canEdit,
   onAction,
+  onSubmitAssignment,
   pendingActions,
 }: {
   student: Student;
   canEdit: boolean;
   onAction: (studentId: string, action: 'late' | 'absence' | 'release') => void;
+  onSubmitAssignment: (studentId: string) => void;
   pendingActions: Set<string>;
 }) {
   const isPending = (action: 'late' | 'absence' | 'release') => pendingActions.has(`${student.id}:${action}`);
+  const isSubmittingAssignment = pendingActions.has(`${student.id}:submit-assignment`);
   return (
     <div className="student-row">
       <div className="student-name-wrap">
@@ -207,6 +230,15 @@ function StudentRow({
           <span className="badge-icon badge-blocked" title="אין רשות כניסה לכיתה">
             ⛔ אין כניסה
           </span>
+        )}
+        {canEdit && student.needsAssignment && (
+          <button
+            className="btn btn-outline btn-sm"
+            disabled={isSubmittingAssignment}
+            onClick={() => onSubmitAssignment(student.id)}
+          >
+            הוגשה עבודה
+          </button>
         )}
       </div>
       <div className="action-buttons">

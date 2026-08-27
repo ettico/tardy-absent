@@ -17,6 +17,7 @@ import SchoolYearPage from './pages/SchoolYearPage';
 import ArchivePage from './pages/ArchivePage';
 import ArchiveClassDetailPage from './pages/ArchiveClassDetailPage';
 import ArchiveSemesterDetailPage from './pages/ArchiveSemesterDetailPage';
+import ManagementControlPage from './pages/ManagementControlPage';
 
 export default function App() {
   return (
@@ -60,13 +61,14 @@ export default function App() {
             <Route path="/students/:id" element={<StudentPage />} />
             <Route path="/reports/at-risk" element={<AtRiskReportPage />} />
             <Route path="/reports/institution-summary" element={<InstitutionSummaryPage />} />
+            <Route path="/management-control" element={<ManagementControlPage />} />
             <Route path="/archive" element={<ArchivePage />} />
             <Route path="/archive/classes/:id" element={<ArchiveClassDetailPage />} />
             <Route path="/archive/semesters/:id" element={<ArchiveSemesterDetailPage />} />
             <Route
               path="/school-year"
               element={
-                <RequireAuth roles={['SYSTEM_ADMIN', 'PRINCIPAL']}>
+                <RequireAuth roles={['SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL']}>
                   <SchoolYearPage />
                 </RequireAuth>
               }

@@ -7,9 +7,9 @@ import { endSemester, yearRollover } from '../services/semester';
 const router = Router();
 router.use(requireAuth);
 
-// Structural, institution-wide actions - restricted to system admin and the
-// school principal, not the day-to-day secretary account.
-router.use(requireRole('SYSTEM_ADMIN', 'PRINCIPAL'));
+// Structural, institution-wide actions. The secretary is the one who
+// actually performs these day-to-day, alongside system admin and principal.
+router.use(requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'));
 
 router.get('/', async (req, res) => {
   const institutionId = resolveInstitutionId(req);

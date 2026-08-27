@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { sendAsExcel } from '../utils/excelExport';
-import { toHebrewDateString } from '../utils/hebrewDate';
+import { toHebrewDateString, toHebrewMonthKey } from '../utils/hebrewDate';
 
 const router = Router();
 router.use(requireAuth, requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'));
@@ -229,6 +229,68 @@ router.get('/institution-summary', async (req, res) => {
   }
 
   res.json({ grades: gradeRows, totals, generatedAt: new Date().toISOString() });
+});
+
+// Institution-wide totals per active class - for the management dashboard's
+// "which classes have the most" comparison chart.
+router.get('/by-class-totals', async (req, res) => {
+  const institutionId = resolveInstitutionId(req);
+  if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
+
+  const classes = await prisma.classRoom.findMany({
+    where: { archived: false, grade: { institutionId } },
+    include: { grade: true, students: true },
+    orderBy: [{ grade: { order: 'asc' } }, { name: 'asc' }],
+  });
+
+  res.json(
+    classes.map((c) => ({
+      className: c.name,
+      gradeName: c.grade.name,
+      late: c.students.reduce((sum, s) => sum + s.totalLateCount, 0),
+      absence: c.students.reduce((sum, s) => sum + s.totalAbsenceCount, 0),
+      release: c.students.reduce((sum, s) => sum + s.totalReleaseCount, 0),
+    }))
+  );
+});
+
+// A class's events for the current semester, grouped by Hebrew month - the
+// dashboard's monthly trend chart (with the peak month called out).
+router.get('/class/:classId/by-month', async (req, res) => {
+  const institutionId = resolveInstitutionId(req);
+  const classRoom = await prisma.classRoom.findUnique({
+    where: { id: req.params.classId },
+    include: { grade: true },
+  });
+  if (!classRoom) return res.status(404).json({ error: 'כיתה לא נמצאה' });
+  if (institutionId && classRoom.grade.institutionId !== institutionId) {
+    return res.status(403).json({ error: 'אין הרשאה' });
+  }
+
+  const currentSemester = await prisma.semester.findFirst({
+    where: { institutionId: classRoom.grade.institutionId, endedAt: null },
+  });
+
+  const events = currentSemester
+    ? await prisma.attendanceEvent.findMany({
+        where: { semesterId: currentSemester.id, student: { classId: classRoom.id }, type: { in: ['LATE', 'ABSENCE'] } },
+      })
+    : [];
+
+  const byMonth = new Map<number, { label: string; late: number; absence: number }>();
+  for (const event of events) {
+    const { label, sortKey } = await toHebrewMonthKey(event.date);
+    if (!byMonth.has(sortKey)) byMonth.set(sortKey, { label, late: 0, absence: 0 });
+    const entry = byMonth.get(sortKey)!;
+    if (event.type === 'LATE') entry.late += 1;
+    else if (event.type === 'ABSENCE') entry.absence += 1;
+  }
+
+  const months = Array.from(byMonth.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, value]) => value);
+
+  res.json({ className: classRoom.name, gradeName: classRoom.grade.name, months });
 });
 
 export default router;
