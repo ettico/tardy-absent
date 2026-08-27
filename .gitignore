@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.env
+*.log
+
+# SQLite dev database - each environment should run its own migration + seed
+server/prisma/dev.db
+server/prisma/dev.db-journal

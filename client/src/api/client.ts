@@ -1,0 +1,19 @@
+import axios from 'axios';
+
+export const api = axios.create({ baseURL: '/api' });
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export function apiErrorMessage(err: unknown, fallback = 'אירעה שגיאה, נסי שוב'): string {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { error?: string } | undefined;
+    if (data?.error) return data.error;
+  }
+  return fallback;
+}

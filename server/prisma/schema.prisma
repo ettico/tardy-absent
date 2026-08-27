@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // SQLite for easy local/dev setup. For real multi-institution production
+  // deployment, switch provider to "postgresql" and point DATABASE_URL at
+  // a Postgres instance - the schema below is compatible with both.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite has no native enum support, so Role / AttendanceType are plain
+// strings here, constrained via the Role / AttendanceType TS union types
+// (see src/types.ts) and validated with zod at every write.
+
+model Institution {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users  User[]
+  grades Grade[]
+}
+
+model User {
+  id            String       @id @default(cuid())
+  username      String       @unique
+  passwordHash  String
+  fullName      String
+  role          String
+  email         String?
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  createdAt     DateTime     @default(now())
+}
+
+model Grade {
+  id            String      @id @default(cuid())
+  name          String
+  color         String
+  order         Int         @default(0)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  classes       ClassRoom[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+}
+
+model ClassRoom {
+  id        String    @id @default(cuid())
+  name      String
+  gradeId   String
+  grade     Grade     @relation(fields: [gradeId], references: [id])
+  students  Student[]
+  createdAt DateTime  @default(now())
+
+  @@unique([gradeId, name])
+}
+
+model Student {
+  id         String @id @default(cuid())
+  fullName   String
+  nationalId String
+  classId    String
+  classRoom  ClassRoom @relation(fields: [classId], references: [id])
+
+  // semester-wide totals
+  totalLateCount    Int @default(0)
+  totalAbsenceCount Int @default(0)
+  totalReleaseCount Int @default(0)
+
+  // "cycle" of 8 lates before an assignment is required
+  cycleLateCount        Int     @default(0)
+  needsAssignment       Boolean @default(false)
+  assignmentsRequired   Int     @default(0)
+  assignmentsSubmitted  Int     @default(0)
+  blocked               Boolean @default(false)
+
+  events    AttendanceEvent[]
+  createdAt DateTime          @default(now())
+}
+
+model AttendanceEvent {
+  id        String         @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  type      String // 'LATE' | 'ABSENCE' | 'RELEASE'
+  date      String // YYYY-MM-DD
+  time      String? // HH:mm - relevant for LATE
+  overflow  Boolean  @default(false) // true = a LATE recorded while student is blocked (9th+ in cycle)
+  createdBy String?
+  createdAt DateTime @default(now())
+}
