@@ -8,6 +8,9 @@ import gradeRoutes from './routes/grades';
 import classRoutes from './routes/classes';
 import studentRoutes from './routes/students';
 import reportRoutes from './routes/reports';
+import searchRoutes from './routes/search';
+import semesterRoutes from './routes/semesters';
+import archiveRoutes from './routes/archive';
 
 const app = express();
 app.use(cors());
@@ -22,6 +25,9 @@ app.use('/api/grades', gradeRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/semesters', semesterRoutes);
+app.use('/api/archive', archiveRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

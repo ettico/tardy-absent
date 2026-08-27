@@ -1,6 +1,7 @@
 import { prisma } from '../prismaClient';
 import { todayDateString, nowTimeString } from '../utils/dates';
 import { sendEmail } from '../utils/email';
+import { getOrCreateCurrentSemesterId } from './semester';
 
 const ASSIGNMENT_THRESHOLD = 8;
 
@@ -11,6 +12,14 @@ interface ActionResult {
   message?: string;
   blocked?: boolean;
   justBlocked?: boolean;
+}
+
+async function getInstitutionIdForStudent(studentId: string): Promise<string> {
+  const classRoom = await prisma.classRoom.findFirstOrThrow({
+    where: { students: { some: { id: studentId } } },
+    include: { grade: true },
+  });
+  return classRoom.grade.institutionId;
 }
 
 export async function markAbsence(studentId: string): Promise<ActionResult> {
@@ -35,32 +44,32 @@ export async function markAbsence(studentId: string): Promise<ActionResult> {
     return { ok: false, message: 'כבר נרשם חיסור לתלמידה זו היום.' };
   }
 
-  await prisma.$transaction([
-    prisma.attendanceEvent.create({ data: { studentId, type: 'ABSENCE', date } }),
-    prisma.student.update({ where: { id: studentId }, data: { totalAbsenceCount: { increment: 1 } } }),
-  ]);
+  const institutionId = await getInstitutionIdForStudent(studentId);
+  await prisma.$transaction(async (tx) => {
+    const semesterId = await getOrCreateCurrentSemesterId(tx, institutionId);
+    await tx.attendanceEvent.create({ data: { studentId, type: 'ABSENCE', date, semesterId } });
+    await tx.student.update({ where: { id: studentId }, data: { totalAbsenceCount: { increment: 1 } } });
+  });
   return { ok: true };
 }
 
-export async function markLate(
-  studentId: string,
-  options: { overrideBlocked?: boolean } = {}
-): Promise<ActionResult> {
+// Clicking "late" always succeeds and is always a single, uniform action for
+// the secretary - no disabled buttons, no confirmation steps. Every late is
+// added to the semester total. The cycle counter (toward the 8-late
+// assignment requirement) is simply never capped: it keeps climbing to 9,
+// 10, 11... for as long as the assignment isn't submitted. `blocked` is a
+// status flag only (drives the badge, the parent-letter option and the one
+// principal email on the 9th) - it never prevents recording a late.
+export async function markLate(studentId: string): Promise<ActionResult> {
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) throw new NotFoundError();
 
-  if (student.blocked && !options.overrideBlocked) {
-    return {
-      ok: false,
-      blocked: true,
-      message: 'לתלמידה אין רשות כניסה לכיתה. יש להפנות אותה למנהלת בית הספר.',
-    };
-  }
-
   const date = todayDateString();
   const time = nowTimeString();
+  const institutionId = await getInstitutionIdForStudent(studentId);
 
   const result = await prisma.$transaction(async (tx) => {
+    const semesterId = await getOrCreateCurrentSemesterId(tx, institutionId);
     const existingAbsenceToday = await tx.attendanceEvent.findFirst({
       where: { studentId, type: 'ABSENCE', date },
     });
@@ -69,32 +78,27 @@ export async function markLate(
       await tx.student.update({ where: { id: studentId }, data: { totalAbsenceCount: { decrement: 1 } } });
     }
 
-    const updateData: Record<string, unknown> = { totalLateCount: { increment: 1 } };
-    let isOverflow = false;
-    let justBlocked = false;
+    const newCycleCount = student.cycleLateCount + 1;
+    const updateData: Record<string, unknown> = {
+      totalLateCount: { increment: 1 },
+      cycleLateCount: newCycleCount,
+    };
+    const crossingIntoAssignment = newCycleCount === ASSIGNMENT_THRESHOLD;
+    const crossingIntoBlocked = newCycleCount === ASSIGNMENT_THRESHOLD + 1;
 
-    if (student.blocked) {
-      // Repeated late arrival while still blocked (10th, 11th... in this cycle).
-      isOverflow = true;
-    } else if (student.needsAssignment) {
-      // This is the late that crosses back over the 8-late threshold -> blocked.
+    if (crossingIntoAssignment) {
+      updateData.needsAssignment = true;
+      updateData.assignmentsRequired = { increment: 1 };
+    }
+    if (newCycleCount > ASSIGNMENT_THRESHOLD) {
       updateData.blocked = true;
-      isOverflow = true;
-      justBlocked = true;
-    } else {
-      const newCycleCount = student.cycleLateCount + 1;
-      updateData.cycleLateCount = newCycleCount;
-      if (newCycleCount >= ASSIGNMENT_THRESHOLD) {
-        updateData.needsAssignment = true;
-        updateData.assignmentsRequired = { increment: 1 };
-      }
     }
 
     await tx.attendanceEvent.create({
-      data: { studentId, type: 'LATE', date, time, overflow: isOverflow },
+      data: { studentId, type: 'LATE', date, time, overflow: newCycleCount > ASSIGNMENT_THRESHOLD, semesterId },
     });
     const updatedStudent = await tx.student.update({ where: { id: studentId }, data: updateData });
-    return { updatedStudent, justBlocked, isOverflow };
+    return { updatedStudent, justBlocked: crossingIntoBlocked };
   });
 
   if (result.justBlocked) {
@@ -103,12 +107,7 @@ export async function markLate(
     );
   }
 
-  return {
-    ok: true,
-    blocked: result.updatedStudent.blocked,
-    justBlocked: result.justBlocked,
-    message: result.isOverflow ? 'האיחור נרשם בסך הכל המחצית (התלמידה עדיין ללא רשות כניסה לכיתה).' : undefined,
-  };
+  return { ok: true, blocked: result.updatedStudent.blocked, justBlocked: result.justBlocked };
 }
 
 export async function markRelease(studentId: string): Promise<ActionResult> {
@@ -116,11 +115,13 @@ export async function markRelease(studentId: string): Promise<ActionResult> {
   if (!student) throw new NotFoundError();
   const date = todayDateString();
   const time = nowTimeString();
+  const institutionId = await getInstitutionIdForStudent(studentId);
 
-  await prisma.$transaction([
-    prisma.attendanceEvent.create({ data: { studentId, type: 'RELEASE', date, time } }),
-    prisma.student.update({ where: { id: studentId }, data: { totalReleaseCount: { increment: 1 } } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    const semesterId = await getOrCreateCurrentSemesterId(tx, institutionId);
+    await tx.attendanceEvent.create({ data: { studentId, type: 'RELEASE', date, time, semesterId } });
+    await tx.student.update({ where: { id: studentId }, data: { totalReleaseCount: { increment: 1 } } });
+  });
   return { ok: true };
 }
 

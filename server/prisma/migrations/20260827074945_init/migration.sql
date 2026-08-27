@@ -2,7 +2,19 @@
 CREATE TABLE "Institution" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
+    "currentYearLabel" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
+CREATE TABLE "Semester" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "institutionId" TEXT NOT NULL,
+    "yearLabel" TEXT NOT NULL,
+    "term" INTEGER NOT NULL,
+    "startedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" DATETIME,
+    CONSTRAINT "Semester_institutionId_fkey" FOREIGN KEY ("institutionId") REFERENCES "Institution" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -35,6 +47,9 @@ CREATE TABLE "ClassRoom" (
     "name" TEXT NOT NULL,
     "gradeId" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "archived" BOOLEAN NOT NULL DEFAULT false,
+    "archivedAt" DATETIME,
+    "archivedYearLabel" TEXT,
     CONSTRAINT "ClassRoom_gradeId_fkey" FOREIGN KEY ("gradeId") REFERENCES "Grade" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -64,10 +79,15 @@ CREATE TABLE "AttendanceEvent" (
     "date" TEXT NOT NULL,
     "time" TEXT,
     "overflow" BOOLEAN NOT NULL DEFAULT false,
+    "semesterId" TEXT,
     "createdBy" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "AttendanceEvent_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "AttendanceEvent_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "AttendanceEvent_semesterId_fkey" FOREIGN KEY ("semesterId") REFERENCES "Semester" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
+
+-- CreateIndex
+CREATE INDEX "Semester_institutionId_idx" ON "Semester"("institutionId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
@@ -76,4 +96,7 @@ CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 CREATE UNIQUE INDEX "Grade_institutionId_name_key" ON "Grade"("institutionId", "name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ClassRoom_gradeId_name_key" ON "ClassRoom"("gradeId", "name");
+CREATE UNIQUE INDEX "ClassRoom_gradeId_name_archived_key" ON "ClassRoom"("gradeId", "name", "archived");
+
+-- CreateIndex
+CREATE INDEX "AttendanceEvent_semesterId_idx" ON "AttendanceEvent"("semesterId");

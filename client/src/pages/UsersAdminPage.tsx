@@ -114,6 +114,7 @@ export default function UsersAdminPage() {
 
 function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('');
+  const [initialYearLabel, setInitialYearLabel] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -122,7 +123,7 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
     setSaving(true);
     setError('');
     try {
-      await api.post('/institutions', { name });
+      await api.post('/institutions', { name, initialYearLabel });
       onCreated();
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -137,6 +138,10 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
         <div className="form-field">
           <label>שם המוסד</label>
           <input value={name} onChange={(e) => setName(e.target.value)} autoFocus required />
+        </div>
+        <div className="form-field">
+          <label>שנת לימודים נוכחית (למשל תשפ״ו) - אופציונלי</label>
+          <input value={initialYearLabel} onChange={(e) => setInitialYearLabel(e.target.value)} />
         </div>
         {error && <p className="error-text">{error}</p>}
         <div className="modal-actions">

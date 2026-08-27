@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
+import { toHebrewDateString } from '../utils/hebrewDate';
+import { downloadExcel } from '../utils/download';
 
 interface ReportStudent {
   fullName: string;
@@ -35,15 +37,23 @@ export default function ReportPrintPage() {
 
   return (
     <div>
-      <div className="no-print" style={{ marginBottom: '1rem' }}>
+      <div className="no-print action-buttons" style={{ marginBottom: '1rem' }}>
         <button className="btn btn-primary" onClick={() => window.print()}>
-          הדפסה
+          הדפסה / שמירה כ-PDF
+        </button>
+        <button
+          className="btn btn-outline"
+          onClick={() => classId && downloadExcel(`/reports/class/${classId}`, scopeParams, `דוח-כיתה-${report.className}.xlsx`)}
+        >
+          הורדת אקסל
         </button>
       </div>
       <h1>
         דוח איחורים וחיסורים - כיתה {report.className} (שכבת {report.gradeName})
       </h1>
-      <p className="stat-pill">הופק בתאריך {new Date(report.generatedAt).toLocaleString('he-IL')}</p>
+      <p className="stat-pill">
+        הופק בתאריך {toHebrewDateString(report.generatedAt.slice(0, 10))}
+      </p>
       <table className="data-table">
         <thead>
           <tr>

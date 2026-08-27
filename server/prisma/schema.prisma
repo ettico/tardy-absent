@@ -15,12 +15,33 @@ datasource db {
 // (see src/types.ts) and validated with zod at every write.
 
 model Institution {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  name             String
+  currentYearLabel String? // e.g. "תשפ״ו", set on institution creation or the first year-rollover
+  createdAt        DateTime @default(now())
 
-  users  User[]
-  grades Grade[]
+  users     User[]
+  grades    Grade[]
+  semesters Semester[]
+}
+
+// A semester is the unit that "End Semester" and "Year Rollover" archive.
+// Exactly one semester per institution has endedAt = null at any time - the
+// active one that new AttendanceEvents attach to. Ending it (directly, or as
+// part of a year rollover) closes it and opens a new one; the closed
+// semester's events remain in place (tagged by semesterId) as the archive -
+// nothing is ever deleted.
+model Semester {
+  id            String        @id @default(cuid())
+  institutionId String
+  institution   Institution   @relation(fields: [institutionId], references: [id])
+  yearLabel     String // e.g. "תשפ״ו"
+  term          Int // 1 or 2
+  startedAt     DateTime      @default(now())
+  endedAt       DateTime?
+  events        AttendanceEvent[]
+
+  @@index([institutionId])
 }
 
 model User {
@@ -56,7 +77,17 @@ model ClassRoom {
   students  Student[]
   createdAt DateTime  @default(now())
 
-  @@unique([gradeId, name])
+  // Set when this class graduates out during a year rollover (was the
+  // top-order grade). Archived classes are frozen and hidden from the
+  // regular grades/classes views, but stay browsable in the archive.
+  archived          Boolean   @default(false)
+  archivedAt        DateTime?
+  archivedYearLabel String? // the institution's yearLabel at the time of archiving
+
+  // Scoped by `archived` too: once a class graduates out, its (gradeId,
+  // name) slot must free up so a newly-promoted class can reuse that name
+  // (e.g. this year's "יב1" moving into last year's, now-archived, יב1's spot).
+  @@unique([gradeId, name, archived])
 }
 
 model Student {
@@ -83,13 +114,17 @@ model Student {
 }
 
 model AttendanceEvent {
-  id        String         @id @default(cuid())
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id])
-  type      String // 'LATE' | 'ABSENCE' | 'RELEASE'
-  date      String // YYYY-MM-DD
-  time      String? // HH:mm - relevant for LATE
-  overflow  Boolean  @default(false) // true = a LATE recorded while student is blocked (9th+ in cycle)
-  createdBy String?
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  studentId  String
+  student    Student   @relation(fields: [studentId], references: [id])
+  type       String // 'LATE' | 'ABSENCE' | 'RELEASE'
+  date       String // YYYY-MM-DD
+  time       String? // HH:mm - relevant for LATE
+  overflow   Boolean   @default(false) // true = a LATE recorded while student is blocked (9th+ in cycle)
+  semesterId String?
+  semester   Semester? @relation(fields: [semesterId], references: [id])
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([semesterId])
 }

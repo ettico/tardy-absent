@@ -142,8 +142,7 @@ router.post('/:id/late', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, r
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   try {
-    const overrideBlocked = Boolean(req.body?.overrideBlocked);
-    const result = await markLate(student.id, { overrideBlocked });
+    const result = await markLate(student.id);
     res.status(result.ok ? 200 : 409).json(result);
   } catch (err) {
     if (err instanceof NotFoundError) return res.status(404).json({ error: 'תלמידה לא נמצאה' });

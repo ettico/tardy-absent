@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
+import { todayHebrewDateString } from '../utils/hebrewDate';
 import type { Student } from '../types';
 
 export default function LetterPrintPage() {
@@ -17,7 +18,7 @@ export default function LetterPrintPage() {
 
   if (!student) return <p className="spinner-note">טוענת...</p>;
 
-  const today = new Date().toLocaleDateString('he-IL');
+  const today = todayHebrewDateString();
   const assignmentsOwed = student.assignmentsRequired - student.assignmentsSubmitted;
 
   return (

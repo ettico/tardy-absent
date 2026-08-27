@@ -11,6 +11,7 @@ export interface AuthUser {
 export interface Institution {
   id: string;
   name: string;
+  currentYearLabel: string | null;
   _count?: { users: number; grades: number };
 }
 
@@ -57,6 +58,15 @@ export interface AttendanceEvent {
   time: string | null;
   overflow: boolean;
   createdAt: string;
+}
+
+export interface Semester {
+  id: string;
+  institutionId: string;
+  yearLabel: string;
+  term: number;
+  startedAt: string;
+  endedAt: string | null;
 }
 
 export interface AppUser {

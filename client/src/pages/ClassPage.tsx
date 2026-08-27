@@ -17,6 +17,7 @@ export default function ClassPage() {
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showRenameClass, setShowRenameClass] = useState(false);
+  const [filterText, setFilterText] = useState('');
 
   const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'SECRETARY';
 
@@ -36,9 +37,9 @@ export default function ClassPage() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function handleAction(studentId: string, action: 'late' | 'absence' | 'release', overrideBlocked = false) {
+  async function handleAction(studentId: string, action: 'late' | 'absence' | 'release') {
     try {
-      const res = await api.post(`/students/${studentId}/${action}`, { overrideBlocked, ...scopeParams });
+      const res = await api.post(`/students/${studentId}/${action}`, scopeParams);
       if (res.data.ok === false) {
         showToast(res.data.message ?? 'הפעולה לא בוצעה', true);
       } else if (res.data.message) {
@@ -69,7 +70,10 @@ export default function ClassPage() {
         </div>
         <div className="action-buttons">
           <Link to={`/reports/class/${classRoom.id}/print`} className="btn btn-outline" target="_blank">
-            הדפסת דוח איחורים וחיסורים
+            דוח סיכום איחורים וחיסורים
+          </Link>
+          <Link to={`/reports/class/${classRoom.id}/booklet`} className="btn btn-outline" target="_blank">
+            חוברת מפורטת למורה
           </Link>
           {canEdit && (
             <>
@@ -90,20 +94,34 @@ export default function ClassPage() {
         </div>
       </div>
 
+      {(classRoom.students ?? []).length > 0 && (
+        <div className="form-field" style={{ maxWidth: 280 }}>
+          <input
+            type="search"
+            placeholder="חיפוש תלמידה בכיתה..."
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+          />
+        </div>
+      )}
+
       <div className="card">
         {(classRoom.students ?? []).length === 0 && (
           <p className="empty-note" style={{ padding: '1rem' }}>
             אין עדיין תלמידות בכיתה זו. ניתן להוסיף ידנית או להעלות קובץ אקסל.
           </p>
         )}
-        {(classRoom.students ?? []).map((student) => (
-          <StudentRow
-            key={student.id}
-            student={student}
-            canEdit={canEdit}
-            onAction={handleAction}
-          />
-        ))}
+        {(classRoom.students ?? [])
+          .filter((s) => s.fullName.includes(filterText.trim()))
+          .map((student) => (
+            <StudentRow key={student.id} student={student} canEdit={canEdit} onAction={handleAction} />
+          ))}
+        {(classRoom.students ?? []).length > 0 &&
+          (classRoom.students ?? []).filter((s) => s.fullName.includes(filterText.trim())).length === 0 && (
+            <p className="empty-note" style={{ padding: '1rem' }}>
+              לא נמצאו תלמידות התואמות לחיפוש.
+            </p>
+          )}
       </div>
 
       {showAddStudent && (
@@ -151,7 +169,7 @@ function StudentRow({
 }: {
   student: Student;
   canEdit: boolean;
-  onAction: (studentId: string, action: 'late' | 'absence' | 'release', overrideBlocked?: boolean) => void;
+  onAction: (studentId: string, action: 'late' | 'absence' | 'release') => void;
 }) {
   return (
     <div className="student-row">
@@ -177,20 +195,9 @@ function StudentRow({
       </div>
       {canEdit && (
         <div className="action-buttons">
-          {student.blocked ? (
-            <>
-              <button className="btn btn-late btn-sm" disabled>
-                אין רשות כניסה לכיתה
-              </button>
-              <button className="btn btn-outline btn-sm" onClick={() => onAction(student.id, 'late', true)}>
-                רישום איחור נוסף בכל זאת
-              </button>
-            </>
-          ) : (
-            <button className="btn btn-late btn-sm" onClick={() => onAction(student.id, 'late')}>
-              איחור
-            </button>
-          )}
+          <button className="btn btn-late btn-sm" onClick={() => onAction(student.id, 'late')}>
+            איחור
+          </button>
           <button className="btn btn-absence btn-sm" onClick={() => onAction(student.id, 'absence')}>
             חיסור
           </button>

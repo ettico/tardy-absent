@@ -9,7 +9,14 @@ import ClassPage from './pages/ClassPage';
 import StudentPage from './pages/StudentPage';
 import UsersAdminPage from './pages/UsersAdminPage';
 import ReportPrintPage from './pages/ReportPrintPage';
+import ClassBookletPrintPage from './pages/ClassBookletPrintPage';
 import LetterPrintPage from './pages/LetterPrintPage';
+import AtRiskReportPage from './pages/AtRiskReportPage';
+import InstitutionSummaryPage from './pages/InstitutionSummaryPage';
+import SchoolYearPage from './pages/SchoolYearPage';
+import ArchivePage from './pages/ArchivePage';
+import ArchiveClassDetailPage from './pages/ArchiveClassDetailPage';
+import ArchiveSemesterDetailPage from './pages/ArchiveSemesterDetailPage';
 
 export default function App() {
   return (
@@ -22,6 +29,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <ReportPrintPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/reports/class/:classId/booklet"
+            element={
+              <RequireAuth>
+                <ClassBookletPrintPage />
               </RequireAuth>
             }
           />
@@ -43,6 +58,19 @@ export default function App() {
             <Route path="/" element={<GradesPage />} />
             <Route path="/classes/:id" element={<ClassPage />} />
             <Route path="/students/:id" element={<StudentPage />} />
+            <Route path="/reports/at-risk" element={<AtRiskReportPage />} />
+            <Route path="/reports/institution-summary" element={<InstitutionSummaryPage />} />
+            <Route path="/archive" element={<ArchivePage />} />
+            <Route path="/archive/classes/:id" element={<ArchiveClassDetailPage />} />
+            <Route path="/archive/semesters/:id" element={<ArchiveSemesterDetailPage />} />
+            <Route
+              path="/school-year"
+              element={
+                <RequireAuth roles={['SYSTEM_ADMIN', 'PRINCIPAL']}>
+                  <SchoolYearPage />
+                </RequireAuth>
+              }
+            />
             <Route
               path="/admin/users"
               element={

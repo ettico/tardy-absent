@@ -9,8 +9,15 @@ async function main() {
   const institution = await prisma.institution.upsert({
     where: { id: 'demo-institution' },
     update: {},
-    create: { id: 'demo-institution', name: 'תיכון דמו' },
+    create: { id: 'demo-institution', name: 'תיכון דמו', currentYearLabel: 'תשפ״ו' },
   });
+
+  const hasOpenSemester = await prisma.semester.findFirst({
+    where: { institutionId: institution.id, endedAt: null },
+  });
+  if (!hasOpenSemester) {
+    await prisma.semester.create({ data: { institutionId: institution.id, yearLabel: 'תשפ״ו', term: 1 } });
+  }
 
   await prisma.user.upsert({
     where: { username: 'admin' },
@@ -74,7 +81,7 @@ async function main() {
   for (const grade of grades) {
     for (const className of classesByGrade[grade.name] ?? []) {
       const classRoom = await prisma.classRoom.upsert({
-        where: { gradeId_name: { gradeId: grade.id, name: className } },
+        where: { gradeId_name_archived: { gradeId: grade.id, name: className, archived: false } },
         update: {},
         create: { name: className, gradeId: grade.id },
       });

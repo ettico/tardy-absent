@@ -17,6 +17,7 @@ router.get('/', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), async (re
     orderBy: { order: 'asc' },
     include: {
       classes: {
+        where: { archived: false },
         orderBy: { name: 'asc' },
         include: { _count: { select: { students: true } } },
       },

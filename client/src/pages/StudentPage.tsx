@@ -4,6 +4,7 @@ import { api, apiErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
+import { toHebrewDateString } from '../utils/hebrewDate';
 import type { Student } from '../types';
 
 const EVENT_LABELS: Record<string, string> = { LATE: 'איחור', ABSENCE: 'חיסור', RELEASE: 'שחרור' };
@@ -36,10 +37,10 @@ export default function StudentPage() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function handleAction(action: 'late' | 'absence' | 'release', overrideBlocked = false) {
+  async function handleAction(action: 'late' | 'absence' | 'release') {
     if (!student) return;
     try {
-      const res = await api.post(`/students/${student.id}/${action}`, { overrideBlocked, ...scopeParams });
+      const res = await api.post(`/students/${student.id}/${action}`, scopeParams);
       if (res.data.ok === false) showToast(res.data.message ?? 'הפעולה לא בוצעה', true);
       else if (res.data.message) showToast(res.data.message);
       load();
@@ -129,26 +130,13 @@ export default function StudentPage() {
           <span className="stat-pill">סה"כ איחורים במחצית: {student.totalLateCount}</span>
           <span className="stat-pill">סה"כ חיסורים במחצית: {student.totalAbsenceCount}</span>
           <span className="stat-pill">סה"כ שחרורים במחצית: {student.totalReleaseCount}</span>
-          <span className="stat-pill">
-            איחורים במחזור הנוכחי: {student.cycleLateCount}/8
-          </span>
+          <span className="stat-pill">איחורים במחזור הנוכחי: {student.cycleLateCount}/8</span>
         </div>
         {canEdit && (
           <div className="action-buttons">
-            {student.blocked ? (
-              <>
-                <button className="btn btn-late" disabled>
-                  אין רשות כניסה לכיתה
-                </button>
-                <button className="btn btn-outline" onClick={() => handleAction('late', true)}>
-                  רישום איחור נוסף בכל זאת
-                </button>
-              </>
-            ) : (
-              <button className="btn btn-late" onClick={() => handleAction('late')}>
-                איחור
-              </button>
-            )}
+            <button className="btn btn-late" onClick={() => handleAction('late')}>
+              איחור
+            </button>
             <button className="btn btn-absence" onClick={() => handleAction('absence')}>
               חיסור
             </button>
@@ -171,7 +159,7 @@ export default function StudentPage() {
         <tbody>
           {(student.events ?? []).map((event) => (
             <tr key={event.id}>
-              <td>{event.date}</td>
+              <td>{toHebrewDateString(event.date)}</td>
               <td>{event.time ?? '-'}</td>
               <td>
                 {EVENT_LABELS[event.type]}
