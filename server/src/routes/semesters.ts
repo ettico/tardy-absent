@@ -38,7 +38,9 @@ router.post('/year-rollover', asyncHandler(async (req, res) => {
     const result = await yearRollover(institutionId, parsed.data.newYearLabel);
     res.status(200).json(result);
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : 'שגיאה בביצוע מעבר שנה' });
+    const isKnownDbError = err !== null && typeof err === 'object' && 'code' in err;
+    const message = err instanceof Error && !isKnownDbError ? err.message : 'שגיאה בביצוע מעבר שנה. נסי שוב, ואם זה חוזר פני לתמיכה.';
+    res.status(400).json({ error: message });
   }
 }));
 

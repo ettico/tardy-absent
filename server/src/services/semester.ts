@@ -66,10 +66,16 @@ export async function yearRollover(institutionId: string, newYearLabel: string) 
     const topGrade = grades[grades.length - 1];
 
     // Graduate the top grade: freeze its classes+students, remove from active views.
+    // The (gradeId, name, archived) unique constraint only frees up a name for
+    // reuse once - the same top grade graduates a class with the same name
+    // (e.g. "יב1") every single year, so without a year-scoped name the second
+    // rollover would collide with last year's already-archived "יב1". Stamping
+    // the year onto the archived name keeps every graduating class distinct.
     for (const cls of topGrade.classes) {
+      const archivedName = oldYearLabel ? `${cls.name} (${oldYearLabel})` : cls.name;
       await tx.classRoom.update({
         where: { id: cls.id },
-        data: { archived: true, archivedAt: new Date(), archivedYearLabel: oldYearLabel },
+        data: { archived: true, archivedAt: new Date(), archivedYearLabel: oldYearLabel, name: archivedName },
       });
     }
 
