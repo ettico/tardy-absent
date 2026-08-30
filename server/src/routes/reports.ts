@@ -3,6 +3,7 @@ import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { sendAsExcel } from '../utils/excelExport';
 import { toHebrewDateString, toHebrewMonthKey } from '../utils/hebrewDate';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 router.use(requireAuth);
@@ -22,7 +23,7 @@ function statusLabel(student: { blocked: boolean; needsAssignment: boolean }): s
 }
 
 // Attendance summary report for a class - counts only.
-router.get('/class/:classId', anyStaffRole, async (req, res) => {
+router.get('/class/:classId', anyStaffRole, asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await prisma.classRoom.findUnique({
     where: { id: req.params.classId },
@@ -66,10 +67,10 @@ router.get('/class/:classId', anyStaffRole, async (req, res) => {
     generatedAt: new Date().toISOString(),
     students: rows,
   });
-});
+}));
 
 // Detailed booklet for a class - per student, full list of event dates.
-router.get('/class/:classId/booklet', anyStaffRole, async (req, res) => {
+router.get('/class/:classId/booklet', anyStaffRole, asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await prisma.classRoom.findUnique({
     where: { id: req.params.classId },
@@ -131,14 +132,14 @@ router.get('/class/:classId/booklet', anyStaffRole, async (req, res) => {
   }
 
   res.json({ className: classRoom.name, gradeName: classRoom.grade.name, students: studentsWithHebrewDates });
-});
+}));
 
 // Institution-wide: students who reached the 8-late assignment threshold at
 // least once this semester, including those currently blocked / referred to
 // administration. assignmentsRequired never resets except on semester-end,
 // so it stays true to "at least once this semester" even after a student
 // submits an assignment and her cycle counter resets.
-router.get('/at-risk', managementOnly, async (req, res) => {
+router.get('/at-risk', managementOnly, asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -179,10 +180,10 @@ router.get('/at-risk', managementOnly, async (req, res) => {
   }
 
   res.json({ students: rows });
-});
+}));
 
 // School-wide summary for the principal - aggregated per grade + totals.
-router.get('/institution-summary', managementOnly, async (req, res) => {
+router.get('/institution-summary', managementOnly, asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -235,11 +236,11 @@ router.get('/institution-summary', managementOnly, async (req, res) => {
   }
 
   res.json({ grades: gradeRows, totals, generatedAt: new Date().toISOString() });
-});
+}));
 
 // Institution-wide totals per active class - for the management dashboard's
 // "which classes have the most" comparison chart.
-router.get('/by-class-totals', managementOnly, async (req, res) => {
+router.get('/by-class-totals', managementOnly, asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -258,11 +259,11 @@ router.get('/by-class-totals', managementOnly, async (req, res) => {
       release: c.students.reduce((sum, s) => sum + s.totalReleaseCount, 0),
     }))
   );
-});
+}));
 
 // A class's events for the current semester, grouped by Hebrew month - the
 // dashboard's monthly trend chart (with the peak month called out).
-router.get('/class/:classId/by-month', managementOnly, async (req, res) => {
+router.get('/class/:classId/by-month', managementOnly, asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await prisma.classRoom.findUnique({
     where: { id: req.params.classId },
@@ -297,6 +298,6 @@ router.get('/class/:classId/by-month', managementOnly, async (req, res) => {
     .map(([, value]) => value);
 
   res.json({ className: classRoom.name, gradeName: classRoom.grade.name, months });
-});
+}));
 
 export default router;

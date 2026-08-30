@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { markAbsence, markLate, markRelease, submitAssignment, removeAttendanceEvents, NotFoundError } from '../services/attendance';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 router.use(requireAuth);
@@ -27,7 +28,7 @@ async function studentInScope(studentId: string, institutionId: string | null) {
   return student;
 }
 
-router.get('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), async (req, res) => {
+router.get('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
@@ -36,7 +37,7 @@ router.get('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), async 
     orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
   });
   res.json({ ...student, events });
-});
+}));
 
 const createSchema = z.object({
   fullName: z.string().min(2),
@@ -44,7 +45,7 @@ const createSchema = z.object({
   classId: z.string().min(1),
 });
 
-router.post('/', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.post('/', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'פרטי תלמידה חסרים או שגויים' });
@@ -54,7 +55,7 @@ router.post('/', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
 
   const student = await prisma.student.create({ data: parsed.data });
   res.status(201).json(student);
-});
+}));
 
 const updateSchema = z.object({
   fullName: z.string().min(2).optional(),
@@ -62,7 +63,7 @@ const updateSchema = z.object({
   classId: z.string().min(1).optional(),
 });
 
-router.patch('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.patch('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
@@ -77,18 +78,18 @@ router.patch('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) 
 
   const updated = await prisma.student.update({ where: { id: student.id }, data: parsed.data });
   res.json(updated);
-});
+}));
 
-router.delete('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.delete('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   await prisma.attendanceEvent.deleteMany({ where: { studentId: student.id } });
   await prisma.student.delete({ where: { id: student.id } });
   res.status(204).send();
-});
+}));
 
-router.post('/class/:classId/import', requireRole('SYSTEM_ADMIN', 'SECRETARY'), upload.single('file'), async (req, res) => {
+router.post('/class/:classId/import', requireRole('SYSTEM_ADMIN', 'SECRETARY'), upload.single('file'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await classInScope(req.params.classId, institutionId);
   if (!classRoom) return res.status(400).json({ error: 'כיתה לא נמצאה' });
@@ -135,9 +136,9 @@ router.post('/class/:classId/import', requireRole('SYSTEM_ADMIN', 'SECRETARY'), 
 
   await prisma.student.createMany({ data: toCreate });
   res.status(201).json({ imported: toCreate.length });
-});
+}));
 
-router.post('/:id/late', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.post('/:id/late', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
@@ -148,35 +149,35 @@ router.post('/:id/late', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, r
     if (err instanceof NotFoundError) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
     throw err;
   }
-});
+}));
 
-router.post('/:id/absence', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.post('/:id/absence', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   const result = await markAbsence(student.id);
   res.json(result);
-});
+}));
 
-router.post('/:id/release', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.post('/:id/release', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   const result = await markRelease(student.id);
   res.status(200).json(result);
-});
+}));
 
-router.post('/:id/submit-assignment', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.post('/:id/submit-assignment', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   const updated = await submitAssignment(student.id);
   res.json(updated);
-});
+}));
 
 const removeEventsSchema = z.object({ eventIds: z.array(z.string().min(1)).min(1) });
 
-router.post('/:id/events/remove', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+router.post('/:id/events/remove', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
@@ -186,6 +187,6 @@ router.post('/:id/events/remove', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyn
 
   const result = await removeAttendanceEvents(student.id, parsed.data.eventIds);
   res.json(result);
-});
+}));
 
 export default router;

@@ -3,13 +3,14 @@ import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { hashPassword } from '../utils/password';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
 // Only the global SYSTEM_ADMIN registers secretaries / principals.
 router.use(requireAuth, requireRole('SYSTEM_ADMIN'));
 
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const institutionId = req.query.institutionId as string | undefined;
   const users = await prisma.user.findMany({
     where: {
@@ -29,7 +30,7 @@ router.get('/', async (req, res) => {
     orderBy: { createdAt: 'asc' },
   });
   res.json(users);
-});
+}));
 
 const createSchema = z.object({
   username: z.string().min(3),
@@ -40,7 +41,7 @@ const createSchema = z.object({
   institutionId: z.string().min(1),
 });
 
-router.post('/', async (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'פרטים חסרים או לא תקינים', details: parsed.error.flatten() });
@@ -57,7 +58,7 @@ router.post('/', async (req, res) => {
     data: { username, passwordHash, fullName, role, email: email || null, institutionId },
   });
   res.status(201).json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role });
-});
+}));
 
 const updateSchema = z.object({
   fullName: z.string().min(2).optional(),
@@ -67,7 +68,7 @@ const updateSchema = z.object({
   password: z.string().min(6).optional().or(z.literal('')),
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', asyncHandler(async (req, res) => {
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'פרטים לא תקינים', details: parsed.error.flatten() });
@@ -80,11 +81,11 @@ router.patch('/:id', async (req, res) => {
 
   const user = await prisma.user.update({ where: { id: req.params.id }, data });
   res.json({ id: user.id, username: user.username, fullName: user.fullName, role: user.role, email: user.email });
-});
+}));
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', asyncHandler(async (req, res) => {
   await prisma.user.delete({ where: { id: req.params.id } });
   res.status(204).send();
-});
+}));
 
 export default router;

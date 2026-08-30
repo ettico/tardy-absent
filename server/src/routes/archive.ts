@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 router.use(requireAuth, requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'));
 
 // Graduated (archived) classes, grouped by the year they graduated in.
-router.get('/classes', async (req, res) => {
+router.get('/classes', asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -25,9 +26,9 @@ router.get('/classes', async (req, res) => {
       studentCount: c._count.students,
     }))
   );
-});
+}));
 
-router.get('/classes/:id', async (req, res) => {
+router.get('/classes/:id', asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await prisma.classRoom.findUnique({
     where: { id: req.params.id },
@@ -54,10 +55,10 @@ router.get('/classes/:id', async (req, res) => {
       totalReleaseCount: s.totalReleaseCount,
     })),
   });
-});
+}));
 
 // Past (ended) semesters - the school's history of terms/years.
-router.get('/semesters', async (req, res) => {
+router.get('/semesters', asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
   const semesters = await prisma.semester.findMany({
@@ -65,12 +66,12 @@ router.get('/semesters', async (req, res) => {
     orderBy: { startedAt: 'desc' },
   });
   res.json(semesters);
-});
+}));
 
 // Aggregated attendance stats for one past semester, computed from the
 // archived events (student totals are reset at semester end, so this reads
 // straight from AttendanceEvent rather than the live counters).
-router.get('/semesters/:id', async (req, res) => {
+router.get('/semesters/:id', asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const semester = await prisma.semester.findUnique({ where: { id: req.params.id } });
   if (!semester) return res.status(404).json({ error: 'מחצית לא נמצאה' });
@@ -107,6 +108,6 @@ router.get('/semesters/:id', async (req, res) => {
   }
 
   res.json({ semester, students: Array.from(byStudent.values()) });
-});
+}));
 
 export default router;

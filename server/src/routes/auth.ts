@@ -4,6 +4,7 @@ import { prisma } from '../prismaClient';
 import { comparePassword } from '../utils/password';
 import { signToken, requireAuth } from '../middleware/auth';
 import { Role } from '../types';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', asyncHandler(async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'יש להזין שם משתמש וסיסמה' });
@@ -37,10 +38,10 @@ router.post('/login', async (req, res) => {
   };
   const token = signToken(authUser);
   res.json({ token, user: authUser });
-});
+}));
 
-router.get('/me', requireAuth, async (req, res) => {
+router.get('/me', requireAuth, asyncHandler(async (req, res) => {
   res.json({ user: req.user });
-});
+}));
 
 export default router;

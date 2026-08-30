@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 router.use(requireAuth, requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'));
 
-router.get('/', async (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const q = String(req.query.q ?? '').trim();
   if (!institutionId || q.length < 2) {
@@ -36,6 +37,6 @@ router.get('/', async (req, res) => {
     })),
     classes: classes.map((c) => ({ id: c.id, name: c.name, gradeName: c.grade.name })),
   });
-});
+}));
 
 export default router;

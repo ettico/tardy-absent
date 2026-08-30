@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
+import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
 router.use(requireAuth);
 
 const PALETTE = ['#6C8EBF', '#82B366', '#D6A44A', '#B85C7A', '#7A6FBF', '#4FA3A0'];
 
-router.get('/', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), async (req, res) => {
+router.get('/', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -24,14 +25,14 @@ router.get('/', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), async (re
     },
   });
   res.json(grades);
-});
+}));
 
 const createSchema = z.object({
   name: z.string().min(1),
   color: z.string().optional(),
 });
 
-router.post('/', requireRole('SYSTEM_ADMIN'), async (req, res) => {
+router.post('/', requireRole('SYSTEM_ADMIN'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'יש לבחור מוסד' });
 
@@ -49,11 +50,23 @@ router.post('/', requireRole('SYSTEM_ADMIN'), async (req, res) => {
   } catch {
     res.status(409).json({ error: 'שכבה בשם זה כבר קיימת במוסד' });
   }
-});
+}));
 
-router.delete('/:id', requireRole('SYSTEM_ADMIN'), async (req, res) => {
-  await prisma.grade.delete({ where: { id: req.params.id } });
+router.delete('/:id', requireRole('SYSTEM_ADMIN'), asyncHandler(async (req, res) => {
+  const institutionId = resolveInstitutionId(req);
+  const grade = await prisma.grade.findUnique({ where: { id: req.params.id } });
+  if (!grade) return res.status(404).json({ error: 'שכבה לא נמצאה' });
+  if (institutionId && grade.institutionId !== institutionId) {
+    return res.status(403).json({ error: 'אין הרשאה' });
+  }
+
+  await prisma.$transaction([
+    prisma.attendanceEvent.deleteMany({ where: { student: { classRoom: { gradeId: grade.id } } } }),
+    prisma.student.deleteMany({ where: { classRoom: { gradeId: grade.id } } }),
+    prisma.classRoom.deleteMany({ where: { gradeId: grade.id } }),
+    prisma.grade.delete({ where: { id: grade.id } }),
+  ]);
   res.status(204).send();
-});
+}));
 
 export default router;
