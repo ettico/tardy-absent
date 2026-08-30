@@ -134,6 +134,21 @@ export async function markRelease(studentId: string): Promise<ActionResult> {
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) throw new NotFoundError();
   const date = todayDateString();
+
+  const existingAbsenceToday = await prisma.attendanceEvent.findFirst({
+    where: { studentId, type: 'ABSENCE', date },
+  });
+  if (existingAbsenceToday) {
+    return { ok: false, message: 'לא ניתן לסמן שחרור: התלמידה נעדרה היום ולא הגיעה לבית הספר.' };
+  }
+
+  const existingReleaseToday = await prisma.attendanceEvent.findFirst({
+    where: { studentId, type: 'RELEASE', date },
+  });
+  if (existingReleaseToday) {
+    return { ok: false, message: `השחרור כבר נרשם לתלמידה זו היום (בשעה ${existingReleaseToday.time}), אין צורך לרשום פעם נוספת.` };
+  }
+
   const time = nowTimeString();
   const institutionId = await getInstitutionIdForStudent(studentId);
 
@@ -157,6 +172,43 @@ export async function submitAssignment(studentId: string) {
       assignmentsSubmitted: { increment: 1 },
     },
   });
+}
+
+// Manual correction tool for the secretary (e.g. an event was recorded by
+// mistake): deletes specific dated events and adjusts the student's counters
+// to match. For LATE events this also lowers the current 8-late cycle count
+// and recomputes needsAssignment/blocked from the new value - but it does
+// NOT touch assignmentsRequired/assignmentsSubmitted, which stay a
+// historical record of whether she was ever flagged this semester.
+export async function removeAttendanceEvents(studentId: string, eventIds: string[]) {
+  const student = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!student) throw new NotFoundError();
+  if (eventIds.length === 0) return { ok: false, message: 'לא נבחרו אירועים להסרה.' };
+
+  const events = await prisma.attendanceEvent.findMany({ where: { id: { in: eventIds }, studentId } });
+  if (events.length === 0) return { ok: false, message: 'לא נמצאו אירועים להסרה.' };
+
+  const lateCount = events.filter((e) => e.type === 'LATE').length;
+  const absenceCount = events.filter((e) => e.type === 'ABSENCE').length;
+  const releaseCount = events.filter((e) => e.type === 'RELEASE').length;
+  const newCycleLateCount = Math.max(0, student.cycleLateCount - lateCount);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.attendanceEvent.deleteMany({ where: { id: { in: events.map((e) => e.id) } } });
+    await tx.student.update({
+      where: { id: studentId },
+      data: {
+        totalLateCount: Math.max(0, student.totalLateCount - lateCount),
+        totalAbsenceCount: Math.max(0, student.totalAbsenceCount - absenceCount),
+        totalReleaseCount: Math.max(0, student.totalReleaseCount - releaseCount),
+        cycleLateCount: newCycleLateCount,
+        needsAssignment: newCycleLateCount >= ASSIGNMENT_THRESHOLD,
+        blocked: newCycleLateCount > ASSIGNMENT_THRESHOLD,
+      },
+    });
+  });
+
+  return { ok: true, message: `הוסרו ${events.length} אירועים בהצלחה.` };
 }
 
 async function notifyPrincipalOfBlock(student: { id: string; fullName: string; nationalId: string; classId: string; totalLateCount: number; totalAbsenceCount: number; assignmentsRequired: number; assignmentsSubmitted: number }) {

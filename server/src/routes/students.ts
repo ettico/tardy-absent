@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
-import { markAbsence, markLate, markRelease, submitAssignment, NotFoundError } from '../services/attendance';
+import { markAbsence, markLate, markRelease, submitAssignment, removeAttendanceEvents, NotFoundError } from '../services/attendance';
 
 const router = Router();
 router.use(requireAuth);
@@ -172,6 +172,20 @@ router.post('/:id/submit-assignment', requireRole('SYSTEM_ADMIN', 'SECRETARY'), 
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
   const updated = await submitAssignment(student.id);
   res.json(updated);
+});
+
+const removeEventsSchema = z.object({ eventIds: z.array(z.string().min(1)).min(1) });
+
+router.post('/:id/events/remove', requireRole('SYSTEM_ADMIN', 'SECRETARY'), async (req, res) => {
+  const institutionId = resolveInstitutionId(req);
+  const student = await studentInScope(req.params.id, institutionId);
+  if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
+
+  const parsed = removeEventsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'יש לבחור לפחות אירוע אחד להסרה' });
+
+  const result = await removeAttendanceEvents(student.id, parsed.data.eventIds);
+  res.json(result);
 });
 
 export default router;

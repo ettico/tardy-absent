@@ -5,10 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
 import Breadcrumbs from '../components/Breadcrumbs';
+import DonutChart from '../components/charts/DonutChart';
 import { toHebrewDateString } from '../utils/hebrewDate';
 import type { Student } from '../types';
 
 const EVENT_LABELS: Record<string, string> = { LATE: 'איחור', ABSENCE: 'חיסור', RELEASE: 'שחרור' };
+const LATE_COLOR = '#d6a44a';
+const ABSENCE_COLOR = '#c0525f';
+const RELEASE_COLOR = '#0f8f82';
 
 export default function StudentPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +24,7 @@ export default function StudentPage() {
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [reduceType, setReduceType] = useState<'LATE' | 'ABSENCE' | null>(null);
 
   const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'SECRETARY';
 
@@ -164,6 +169,32 @@ export default function StudentPage() {
             </button>
           </div>
         )}
+        {canEdit && (student.totalLateCount > 0 || student.totalAbsenceCount > 0) && (
+          <div className="action-buttons" style={{ marginTop: '0.75rem' }}>
+            {student.totalLateCount > 0 && (
+              <button className="btn btn-outline btn-sm" onClick={() => setReduceType('LATE')}>
+                הורדת איחורים
+              </button>
+            )}
+            {student.totalAbsenceCount > 0 && (
+              <button className="btn btn-outline btn-sm" onClick={() => setReduceType('ABSENCE')}>
+                הורדת חיסורים
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="dashboard-card">
+        <h2>סטטוס במחצית הנוכחית</h2>
+        <DonutChart
+          centerLabel="סה״כ אירועים"
+          segments={[
+            { key: 'late', label: 'איחורים', color: LATE_COLOR, value: student.totalLateCount },
+            { key: 'absence', label: 'חיסורים', color: ABSENCE_COLOR, value: student.totalAbsenceCount },
+            { key: 'release', label: 'שחרורים', color: RELEASE_COLOR, value: student.totalReleaseCount },
+          ]}
+        />
       </div>
 
       <h2 style={{ color: 'var(--primary-dark)', fontSize: '1.1rem' }}>היסטוריית אירועים</h2>
@@ -203,6 +234,19 @@ export default function StudentPage() {
           onClose={() => setShowEdit(false)}
           onUpdated={() => {
             setShowEdit(false);
+            load();
+          }}
+        />
+      )}
+      {reduceType && (
+        <ReduceEventsModal
+          student={student}
+          type={reduceType}
+          scopeParams={scopeParams}
+          onClose={() => setReduceType(null)}
+          onReduced={(message) => {
+            setReduceType(null);
+            showToast(message);
             load();
           }}
         />
@@ -263,6 +307,88 @@ function EditStudentModal({
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function ReduceEventsModal({
+  student,
+  type,
+  scopeParams,
+  onClose,
+  onReduced,
+}: {
+  student: Student;
+  type: 'LATE' | 'ABSENCE';
+  scopeParams: { institutionId?: string };
+  onClose: () => void;
+  onReduced: (message: string) => void;
+}) {
+  const events = (student.events ?? []).filter((e) => e.type === type);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const typeLabel = type === 'LATE' ? 'איחורים' : 'חיסורים';
+
+  function toggle(eventId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  }
+
+  async function handleConfirm() {
+    if (selected.size === 0) return;
+    const confirmed = confirm(`האם ברצונך להפחית ${typeLabel} (${selected.size}) לתלמידה ${student.fullName}?`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      const res = await api.post(`/students/${student.id}/events/remove`, {
+        eventIds: Array.from(selected),
+        ...scopeParams,
+      });
+      if (res.data.ok === false) {
+        setError(res.data.message ?? 'הפעולה לא בוצעה');
+      } else {
+        onReduced(res.data.message ?? 'ההפחתה בוצעה בהצלחה.');
+      }
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title={`הורדת ${typeLabel} - ${student.fullName}`} onClose={onClose}>
+      <p className="empty-note">בחרי את התאריכים שברצונך להסיר. הפעולה תפחית גם מסך המחצית וגם ממחזור ה-8 (עבור איחורים).</p>
+      {events.length === 0 ? (
+        <p className="empty-note">אין תאריכים להצגה.</p>
+      ) : (
+        <div style={{ maxHeight: 260, overflowY: 'auto', marginBottom: '1rem' }}>
+          {events.map((event) => (
+            <label key={event.id} className="reduce-event-row">
+              <input type="checkbox" checked={selected.has(event.id)} onChange={() => toggle(event.id)} />
+              {toHebrewDateString(event.date)}
+              {event.time && ` בשעה ${event.time}`}
+            </label>
+          ))}
+        </div>
+      )}
+      {error && <p className="error-text">{error}</p>}
+      <div className="modal-actions">
+        <button type="button" className="btn btn-ghost" onClick={onClose}>
+          ביטול
+        </button>
+        <button type="button" className="btn btn-danger" disabled={saving || selected.size === 0} onClick={handleConfirm}>
+          הפחתת {selected.size || ''} {typeLabel}
+        </button>
+      </div>
     </Modal>
   );
 }

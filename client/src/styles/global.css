@@ -664,6 +664,38 @@ table.data-table th {
   margin-top: 0.1rem;
 }
 
+.reduce-event-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.reduce-event-row:last-child {
+  border-bottom: none;
+}
+
+.donut-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.donut-svg {
+  width: 160px;
+  height: 160px;
+}
+.donut-center-value {
+  font-size: 28px;
+  font-weight: 800;
+  fill: var(--text);
+}
+.donut-center-label {
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+
 .share-bar {
   display: flex;
   width: 100%;

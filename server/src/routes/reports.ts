@@ -5,7 +5,13 @@ import { sendAsExcel } from '../utils/excelExport';
 import { toHebrewDateString, toHebrewMonthKey } from '../utils/hebrewDate';
 
 const router = Router();
-router.use(requireAuth, requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'));
+router.use(requireAuth);
+
+// Class-level reports (summary + booklet) are day-to-day secretary tools.
+// The cross-grade "at risk" report and the management dashboard's data are
+// restricted to system admin and the school principal only.
+const anyStaffRole = requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL');
+const managementOnly = requireRole('SYSTEM_ADMIN', 'PRINCIPAL');
 
 const EVENT_LABELS: Record<string, string> = { LATE: 'איחור', ABSENCE: 'חיסור', RELEASE: 'שחרור' };
 
@@ -16,7 +22,7 @@ function statusLabel(student: { blocked: boolean; needsAssignment: boolean }): s
 }
 
 // Attendance summary report for a class - counts only.
-router.get('/class/:classId', async (req, res) => {
+router.get('/class/:classId', anyStaffRole, async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await prisma.classRoom.findUnique({
     where: { id: req.params.classId },
@@ -63,7 +69,7 @@ router.get('/class/:classId', async (req, res) => {
 });
 
 // Detailed booklet for a class - per student, full list of event dates.
-router.get('/class/:classId/booklet', async (req, res) => {
+router.get('/class/:classId/booklet', anyStaffRole, async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await prisma.classRoom.findUnique({
     where: { id: req.params.classId },
@@ -132,7 +138,7 @@ router.get('/class/:classId/booklet', async (req, res) => {
 // administration. assignmentsRequired never resets except on semester-end,
 // so it stays true to "at least once this semester" even after a student
 // submits an assignment and her cycle counter resets.
-router.get('/at-risk', async (req, res) => {
+router.get('/at-risk', managementOnly, async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -176,7 +182,7 @@ router.get('/at-risk', async (req, res) => {
 });
 
 // School-wide summary for the principal - aggregated per grade + totals.
-router.get('/institution-summary', async (req, res) => {
+router.get('/institution-summary', managementOnly, async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -233,7 +239,7 @@ router.get('/institution-summary', async (req, res) => {
 
 // Institution-wide totals per active class - for the management dashboard's
 // "which classes have the most" comparison chart.
-router.get('/by-class-totals', async (req, res) => {
+router.get('/by-class-totals', managementOnly, async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
 
@@ -256,7 +262,7 @@ router.get('/by-class-totals', async (req, res) => {
 
 // A class's events for the current semester, grouped by Hebrew month - the
 // dashboard's monthly trend chart (with the peak month called out).
-router.get('/class/:classId/by-month', async (req, res) => {
+router.get('/class/:classId/by-month', managementOnly, async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const classRoom = await prisma.classRoom.findUnique({
     where: { id: req.params.classId },

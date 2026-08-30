@@ -24,15 +24,19 @@ export default function Layout() {
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
             שכבות וכיתות
           </NavLink>
-          <NavLink to="/reports/at-risk" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
-            תלמידות בחריגה
-          </NavLink>
-          <NavLink
-            to="/management-control"
-            className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}
-          >
-            בקרת מנהלים
-          </NavLink>
+          {(user?.role === 'SYSTEM_ADMIN' || user?.role === 'PRINCIPAL') && (
+            <>
+              <NavLink to="/reports/at-risk" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
+                תלמידות בחריגה
+              </NavLink>
+              <NavLink
+                to="/management-control"
+                className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}
+              >
+                בקרת מנהלים
+              </NavLink>
+            </>
+          )}
           <NavLink to="/archive" className={({ isActive }) => (isActive ? 'nav-tab active' : 'nav-tab')}>
             ארכיון
           </NavLink>

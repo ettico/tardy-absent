@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
 import GroupedBarChart from '../components/charts/GroupedBarChart';
-import StackedShareBar from '../components/charts/StackedShareBar';
+import DonutChart from '../components/charts/DonutChart';
 import type { Grade, Student } from '../types';
 
 const LATE_COLOR = '#d6a44a';
@@ -155,7 +155,8 @@ export default function ManagementControlPage() {
           )}
         </div>
         {selectedStudent ? (
-          <StackedShareBar
+          <DonutChart
+            centerLabel="סה״כ אירועים"
             segments={[
               { key: 'late', label: 'איחורים', color: LATE_COLOR, value: selectedStudent.totalLateCount },
               { key: 'absence', label: 'חיסורים', color: ABSENCE_COLOR, value: selectedStudent.totalAbsenceCount },

@@ -59,9 +59,30 @@ export default function App() {
             <Route path="/" element={<GradesPage />} />
             <Route path="/classes/:id" element={<ClassPage />} />
             <Route path="/students/:id" element={<StudentPage />} />
-            <Route path="/reports/at-risk" element={<AtRiskReportPage />} />
-            <Route path="/reports/institution-summary" element={<InstitutionSummaryPage />} />
-            <Route path="/management-control" element={<ManagementControlPage />} />
+            <Route
+              path="/reports/at-risk"
+              element={
+                <RequireAuth roles={['SYSTEM_ADMIN', 'PRINCIPAL']}>
+                  <AtRiskReportPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/reports/institution-summary"
+              element={
+                <RequireAuth roles={['SYSTEM_ADMIN', 'PRINCIPAL']}>
+                  <InstitutionSummaryPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/management-control"
+              element={
+                <RequireAuth roles={['SYSTEM_ADMIN', 'PRINCIPAL']}>
+                  <ManagementControlPage />
+                </RequireAuth>
+              }
+            />
             <Route path="/archive" element={<ArchivePage />} />
             <Route path="/archive/classes/:id" element={<ArchiveClassDetailPage />} />
             <Route path="/archive/semesters/:id" element={<ArchiveSemesterDetailPage />} />
