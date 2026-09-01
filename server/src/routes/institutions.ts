@@ -3,30 +3,37 @@ import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
-import { countStudyDays } from '../utils/dates';
 import { hasCalendarData } from '../data/schoolCalendar';
+import { countInstitutionStudyDays, getOverridesMap } from '../services/calendar';
 
 const router = Router();
 router.use(requireAuth);
 
 // Adds the current open semester's planned-end-date and total study-day
-// count (Sun-Thu, minus real school vacations where known) to an
+// count (Sun-Thu, minus real school vacations/overrides where known) to an
 // institution payload - the fixed denominator the severity indicators are
 // built on. null when no semester is open yet, or no planned end date was
-// set. studyDaysAccurate is false when the semester's year has no vacation
-// calendar data (see schoolCalendar.ts), so the count is a rougher estimate.
+// set. studyDaysAccurate is true once either the institution has its own
+// calendar overrides (an upload or manual edit) or the hardcoded calendar
+// covers that semester's year - false means it's a Sun-Thu-only estimate.
 async function withStudyDays<T extends { id: string }>(institution: T) {
   const semester = await prisma.semester.findFirst({ where: { institutionId: institution.id, endedAt: null } });
   const plannedEndDate = semester?.plannedEndDate ?? null;
-  const studyDaysTotal = plannedEndDate
-    ? countStudyDays(semester!.startedAt.toISOString().slice(0, 10), plannedEndDate, semester!.yearLabel)
-    : null;
+  const semesterStart = semester?.startedAt.toISOString().slice(0, 10);
+  const studyDaysTotal =
+    plannedEndDate && semesterStart
+      ? await countInstitutionStudyDays(institution.id, semesterStart, plannedEndDate, semester!.yearLabel)
+      : null;
+  const hasOverrides =
+    plannedEndDate && semesterStart
+      ? (await getOverridesMap(institution.id, semesterStart, plannedEndDate)).size > 0
+      : false;
   return {
     ...institution,
     plannedEndDate,
     nextPlannedEndDate: semester?.nextPlannedEndDate ?? null,
     studyDaysTotal,
-    studyDaysAccurate: hasCalendarData(semester?.yearLabel),
+    studyDaysAccurate: hasOverrides || hasCalendarData(semester?.yearLabel),
   };
 }
 

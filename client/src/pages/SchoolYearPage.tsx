@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api, apiErrorMessage } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
@@ -112,14 +112,13 @@ function PlannedEndDateCard({
     <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
       <h2 style={{ marginTop: 0, fontSize: '1.05rem', color: 'var(--primary-dark)' }}>תאריכי סיום משוערים למחציות</h2>
       <p className="empty-note">
-        קובע את מספר ימי הלימוד (ימי ראשון-חמישי, בניכוי חגים וחופשות ידועים) בכל מחצית, שמשמש למדד החריגות בעמוד כל
-        תלמידה - כך שמעט אירועים לא ייראו כמו "מלא" בטעות, וייתן אינדיקציה אמיתית כשמספר האירועים גבוה יחסית לימי
-        הלימוד.
+        תאריך הסיום קובע את גבולות המחצית. מספר ימי הלימוד בפועל בתוכה (לצורך מדד החריגות בעמוד כל תלמידה) מחושב לפי
+        לוח ימי הלימוד של המוסד - ניתן להעלות קובץ אקסל עם ימי הלימוד המדויקים, או לערוך יום ספציפי ישירות בלוח.
         {institution && !institution.studyDaysAccurate && (
           <>
             {' '}
-            <b>שימו לב:</b> לשנת הלימודים הנוכחית עדיין אין במערכת לוח חגים מדויק, כך שהספירה כרגע היא הערכה גסה
-            (ימי א׳-ה׳ בלבד, בלי ניכוי חגים) - יש לעדכן זאת ידנית מול הצוות הטכני.
+            <b>שימו לב:</b> עדיין לא הועלה קובץ ימי לימוד למוסד זה (ואין למערכת לוח חגים מובנה לשנה הנוכחית), כך
+            שהספירה כרגע היא הערכה גסה (ימי א׳-ה׳ בלבד, בלי ניכוי חגים).
           </>
         )}
       </p>
@@ -139,6 +138,11 @@ function PlannedEndDateCard({
         </div>
       </form>
       {error && <p className="error-text">{error}</p>}
+      <div style={{ marginTop: '1rem' }}>
+        <Link to="/school-year/calendar" className="btn btn-outline">
+          פתיחת לוח ימי לימוד
+        </Link>
+      </div>
     </div>
   );
 }
@@ -152,6 +156,7 @@ function EndSemesterModal({
 }) {
   const [confirmText, setConfirmText] = useState('');
   const [plannedEndDate, setPlannedEndDate] = useState('');
+  const calendarFileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -162,6 +167,15 @@ function EndSemesterModal({
     setError('');
     try {
       await api.post('/semesters/end', { plannedEndDate: plannedEndDate || undefined, ...scopeParams });
+      const calendarFile = calendarFileRef.current?.files?.[0];
+      if (calendarFile) {
+        const formData = new FormData();
+        formData.append('file', calendarFile);
+        const params = new URLSearchParams(scopeParams as Record<string, string>).toString();
+        await api.post(`/calendar/upload?${params}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
       setDone(true);
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -187,6 +201,10 @@ function EndSemesterModal({
           <div className="form-field">
             <label>תאריך סיום משוער למחצית החדשה (אופציונלי, ניתן להגדיר גם מאוחר יותר)</label>
             <input type="date" value={plannedEndDate} onChange={(e) => setPlannedEndDate(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>קובץ ימי לימוד למחצית החדשה (אקסל, אופציונלי)</label>
+            <input ref={calendarFileRef} type="file" accept=".xlsx,.xls" />
           </div>
           <div className="form-field">
             <label>כדי לאשר, הקלידי "סיום מחצית"</label>
@@ -218,6 +236,7 @@ function YearRolloverModal({
 }) {
   const [newYearLabel, setNewYearLabel] = useState('');
   const [plannedEndDate, setPlannedEndDate] = useState('');
+  const calendarFileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ promotedGrades: number; graduatedClasses: number } | null>(null);
@@ -232,6 +251,15 @@ function YearRolloverModal({
         plannedEndDate: plannedEndDate || undefined,
         ...scopeParams,
       });
+      const calendarFile = calendarFileRef.current?.files?.[0];
+      if (calendarFile) {
+        const formData = new FormData();
+        formData.append('file', calendarFile);
+        const params = new URLSearchParams(scopeParams as Record<string, string>).toString();
+        await api.post(`/calendar/upload?${params}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
       setResult(res.data);
       onDone();
     } catch (err) {
@@ -267,6 +295,10 @@ function YearRolloverModal({
           <div className="form-field">
             <label>תאריך סיום משוער למחצית החדשה (אופציונלי, ניתן להגדיר גם מאוחר יותר)</label>
             <input type="date" value={plannedEndDate} onChange={(e) => setPlannedEndDate(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>קובץ ימי לימוד למחצית החדשה (אקסל, אופציונלי)</label>
+            <input ref={calendarFileRef} type="file" accept=".xlsx,.xls" />
           </div>
           {error && <p className="error-text">{error}</p>}
           <div className="modal-actions">

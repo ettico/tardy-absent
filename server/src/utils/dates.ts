@@ -34,14 +34,26 @@ export function eachDate(fromISO: string, toISO: string): string[] {
   return dates;
 }
 
-// Counts study days (Sunday-Thursday, excluding known school vacation days)
-// between two 'YYYY-MM-DD' dates, inclusive of both ends. hebrewYearLabel
-// (e.g. 'תשפ"ז') looks up real vacation dates in schoolCalendar.ts; with no
-// entry for that year it falls back to a plain Sunday-Thursday count, which
-// overcounts by not excluding that year's holidays - see schoolCalendar.ts.
-export function countStudyDays(fromISO: string, toISO: string, hebrewYearLabel?: string | null): number {
+// Counts study days between two 'YYYY-MM-DD' dates, inclusive of both ends.
+// Priority per day: an explicit entry in `overrides` (a per-institution
+// upload or a manual calendar edit) always wins; failing that, a known
+// vacation day for hebrewYearLabel (see schoolCalendar.ts) is excluded;
+// failing that, Sunday-Thursday counts and Friday/Saturday don't. With no
+// overrides and no calendar data for that year, this is a plain
+// Sunday-Thursday count, which overcounts by not excluding real holidays.
+export function countStudyDays(
+  fromISO: string,
+  toISO: string,
+  hebrewYearLabel?: string | null,
+  overrides?: Map<string, boolean>
+): number {
   let count = 0;
   for (const iso of eachDate(fromISO, toISO)) {
+    const override = overrides?.get(iso);
+    if (override !== undefined) {
+      if (override) count++;
+      continue;
+    }
     const [y, m, d] = iso.split('-').map(Number);
     const weekday = new Date(y, m - 1, d).getDay(); // 0=Sunday, ..., 6=Saturday
     if (weekday < 0 || weekday > 4) continue;

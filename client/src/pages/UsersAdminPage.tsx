@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { api, apiErrorMessage } from '../api/client';
 import { useInstitution } from '../context/InstitutionContext';
 import Modal from '../components/Modal';
@@ -179,6 +179,7 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
   const [initialYearLabel, setInitialYearLabel] = useState('');
   const [plannedEndDate, setPlannedEndDate] = useState('');
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const calendarFileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -198,12 +199,20 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
     setSaving(true);
     setError('');
     try {
-      await api.post('/institutions', {
+      const res = await api.post('/institutions', {
         name,
         initialYearLabel,
         plannedEndDate: plannedEndDate || undefined,
         logoDataUrl: logoDataUrl ?? undefined,
       });
+      const calendarFile = calendarFileRef.current?.files?.[0];
+      if (calendarFile) {
+        const formData = new FormData();
+        formData.append('file', calendarFile);
+        await api.post(`/calendar/upload?institutionId=${res.data.id}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
       onCreated();
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -233,6 +242,10 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
           {logoDataUrl && (
             <img src={logoDataUrl} alt="תצוגה מקדימה" style={{ height: 48, marginTop: '0.5rem', borderRadius: 6 }} />
           )}
+        </div>
+        <div className="form-field">
+          <label>קובץ ימי לימוד (אקסל, אופציונלי) - טבלה עם עמודות "תאריך" ו"יום לימודים" (כן/לא)</label>
+          <input ref={calendarFileRef} type="file" accept=".xlsx,.xls" />
         </div>
         {error && <p className="error-text">{error}</p>}
         <div className="modal-actions">

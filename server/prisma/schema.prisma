@@ -21,9 +21,28 @@ model Institution {
   logoDataUrl      String? // data: URL, shown to this institution's users after login
   createdAt        DateTime @default(now())
 
-  users     User[]
-  grades    Grade[]
-  semesters Semester[]
+  users             User[]
+  grades            Grade[]
+  semesters         Semester[]
+  calendarOverrides CalendarOverride[]
+}
+
+// An explicit study/non-study override for one date, for one institution -
+// from an uploaded calendar file or a manual click on the calendar page.
+// Only exceptions need to exist here; countStudyDays falls back to the
+// Sunday-Thursday default (and the hardcoded schoolCalendar.ts table) for
+// any date with no override row.
+model CalendarOverride {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  date          String // 'YYYY-MM-DD'
+  isStudyDay    Boolean
+  label         String? // e.g. "חופשת מלחמה", optional note for why
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, date])
+  @@index([institutionId])
 }
 
 // A semester is the unit that "End Semester" and "Year Rollover" archive.

@@ -702,45 +702,68 @@ table.data-table th {
   letter-spacing: 0.01em;
 }
 
-.intensity-grid-wrap {
-  overflow-x: auto;
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
 }
-.intensity-grid {
-  border-collapse: separate;
-  border-spacing: 3px;
-  margin: 0 auto;
-}
-.intensity-grid th {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  padding: 0.3rem 0.5rem;
-  white-space: nowrap;
-}
-.intensity-grid td {
-  width: 44px;
-  height: 34px;
+.calendar-grid-header {
   text-align: center;
-  vertical-align: middle;
-  border-radius: 6px;
+  font-size: 0.8rem;
   font-weight: 700;
-  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.4rem 0;
 }
-.intensity-legend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  font-size: 0.78rem;
+.calendar-day {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.calendar-day:hover {
+  box-shadow: var(--shadow-md);
+}
+.calendar-day-outside {
+  opacity: 0.35;
+}
+.calendar-day-off {
+  background: #dde3ea;
   color: var(--text-muted);
 }
-.intensity-legend-bar {
-  display: inline-block;
-  width: 100px;
-  height: 8px;
-  border-radius: 4px;
-  background: linear-gradient(to left, rgb(247, 217, 220), rgb(122, 31, 43));
+.calendar-day-overridden {
+  border: 2px solid var(--primary);
+}
+
+.monthly-donut-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  overflow-x: auto;
+  padding: 0.25rem;
+}
+.monthly-donut-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.monthly-donut-count {
+  font-size: 15px;
+  font-weight: 800;
+  fill: var(--text);
+}
+.monthly-donut-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .donut-wrap {

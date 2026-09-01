@@ -9,6 +9,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { countStudyDays, eachDate, todayDateString } from '../utils/dates';
 import { toHebrewMonthKey } from '../utils/hebrewDate';
 import { hasCalendarData } from '../data/schoolCalendar';
+import { getOverridesMap } from '../services/calendar';
 
 const router = Router();
 router.use(requireAuth);
@@ -43,11 +44,12 @@ router.get('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), asyncH
 }));
 
 // Per-month breakdown for the current semester - late/absence/release counts
-// plus the (holiday-aware) study-day count for that month, so the client can
-// show intensity relative to how much school there actually was that month
-// rather than raw counts alone. Includes every month touched by the
-// semester so far, even ones with zero events, so a clean month still shows
-// as an (empty) cell rather than being missing entirely.
+// plus the (holiday-aware) study-day count for the WHOLE month, so a month's
+// scale stays stable and meaningful throughout - not shrinking to whatever
+// has merely elapsed so far (which would make one early-month event read as
+// a much bigger share than it is). Covers every month of the semester up to
+// its planned end date if set, else up to today; a month is only clipped at
+// the semester's own start/end edges, never at "today" mid-month.
 router.get('/:id/monthly', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
@@ -62,10 +64,10 @@ router.get('/:id/monthly', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL')
 
   const semesterStart = currentSemester.startedAt.toISOString().slice(0, 10);
   const today = todayDateString();
-  const rangeEnd = today < semesterStart ? semesterStart : today;
+  const semesterEnd = currentSemester.plannedEndDate ?? (today < semesterStart ? semesterStart : today);
 
   const monthBounds = new Map<number, { label: string; startISO: string; endISO: string }>();
-  for (const iso of eachDate(semesterStart, rangeEnd)) {
+  for (const iso of eachDate(semesterStart, semesterEnd)) {
     const { label, sortKey, startISO, endISO } = await toHebrewMonthKey(iso);
     if (!monthBounds.has(sortKey)) monthBounds.set(sortKey, { label, startISO, endISO });
   }
@@ -83,17 +85,21 @@ router.get('/:id/monthly', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL')
     else entry.release += 1;
   }
 
-  const months = Array.from(monthBounds.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([sortKey, bounds]) => {
-      const clippedStart = bounds.startISO < semesterStart ? semesterStart : bounds.startISO;
-      const clippedEnd = bounds.endISO > rangeEnd ? rangeEnd : bounds.endISO;
-      const studyDays = countStudyDays(clippedStart, clippedEnd, currentSemester.yearLabel);
-      const c = counts.get(sortKey) ?? { late: 0, absence: 0, release: 0 };
-      return { label: bounds.label, studyDays, ...c };
-    });
+  const overrides = await getOverridesMap(student.classRoom.grade.institutionId, semesterStart, semesterEnd);
+  const sortedEntries = Array.from(monthBounds.entries()).sort(([a], [b]) => a - b);
+  const months = sortedEntries.map(([sortKey, bounds]) => {
+    // Full month, only clipped where the semester itself starts/ends mid-month.
+    const clippedStart = bounds.startISO < semesterStart ? semesterStart : bounds.startISO;
+    const clippedEnd = bounds.endISO > semesterEnd ? semesterEnd : bounds.endISO;
+    const studyDays = countStudyDays(clippedStart, clippedEnd, currentSemester.yearLabel, overrides);
+    const c = counts.get(sortKey) ?? { late: 0, absence: 0, release: 0 };
+    return { label: bounds.label, studyDays, ...c };
+  });
 
-  res.json({ months, studyDaysAccurate: hasCalendarData(currentSemester.yearLabel) });
+  res.json({
+    months,
+    studyDaysAccurate: overrides.size > 0 || hasCalendarData(currentSemester.yearLabel),
+  });
 }));
 
 const createSchema = z.object({

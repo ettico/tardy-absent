@@ -34,7 +34,7 @@ export default function ClassPage() {
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, [id]);
+  useEffect(load, [id, scopeParams.institutionId]);
 
   function showToast(text: string, error = false) {
     setToast({ text, error });

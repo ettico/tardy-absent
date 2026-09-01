@@ -8,7 +8,7 @@ import Modal from '../components/Modal';
 import Breadcrumbs from '../components/Breadcrumbs';
 import DonutChart from '../components/charts/DonutChart';
 import SeverityGauge from '../components/charts/SeverityGauge';
-import MonthlyIntensityGrid, { type MonthlyRow } from '../components/charts/MonthlyIntensityGrid';
+import MonthlyDonutRow, { type MonthlyRow } from '../components/charts/MonthlyDonutRow';
 import TrashIcon from '../components/icons/TrashIcon';
 import { toHebrewDateString } from '../utils/hebrewDate';
 import type { AttendanceEvent, Student } from '../types';
@@ -61,7 +61,7 @@ export default function StudentPage() {
       .catch(() => setMonthlyRows([]));
   }
 
-  useEffect(load, [id]);
+  useEffect(load, [id, scopeParams.institutionId]);
 
   function showToast(text: string, error = false) {
     setToast({ text, error });
@@ -281,7 +281,7 @@ export default function StudentPage() {
         </div>
         <div className="dashboard-card" style={{ flex: '1 1 100%' }}>
           <h2>פילוח חודשי</h2>
-          <MonthlyIntensityGrid months={monthlyRows} />
+          <MonthlyDonutRow months={monthlyRows} />
         </div>
       </div>
 
