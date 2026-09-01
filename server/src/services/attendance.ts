@@ -44,6 +44,16 @@ export async function markAbsence(studentId: string): Promise<ActionResult> {
     return { ok: false, message: 'החיסור כבר נרשם לתלמידה זו היום, אין צורך לרשום פעם נוספת.' };
   }
 
+  const existingReleaseToday = await prisma.attendanceEvent.findFirst({
+    where: { studentId, type: 'RELEASE', date },
+  });
+  if (existingReleaseToday) {
+    return {
+      ok: false,
+      message: `לא ניתן לסמן חיסור: התלמידה כבר שוחררה היום (בשעה ${existingReleaseToday.time}), כלומר היא כן הגיעה.`,
+    };
+  }
+
   const institutionId = await getInstitutionIdForStudent(studentId);
   await prisma.$transaction(async (tx) => {
     const semesterId = await getOrCreateCurrentSemesterId(tx, institutionId);
