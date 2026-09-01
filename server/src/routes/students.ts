@@ -6,6 +6,9 @@ import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { markAbsence, markLate, markRelease, submitAssignment, removeAttendanceEvents, NotFoundError } from '../services/attendance';
 import { asyncHandler } from '../utils/asyncHandler';
+import { countStudyDays, eachDate, todayDateString } from '../utils/dates';
+import { toHebrewMonthKey } from '../utils/hebrewDate';
+import { hasCalendarData } from '../data/schoolCalendar';
 
 const router = Router();
 router.use(requireAuth);
@@ -37,6 +40,60 @@ router.get('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), asyncH
     orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
   });
   res.json({ ...student, events });
+}));
+
+// Per-month breakdown for the current semester - late/absence/release counts
+// plus the (holiday-aware) study-day count for that month, so the client can
+// show intensity relative to how much school there actually was that month
+// rather than raw counts alone. Includes every month touched by the
+// semester so far, even ones with zero events, so a clean month still shows
+// as an (empty) cell rather than being missing entirely.
+router.get('/:id/monthly', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), asyncHandler(async (req, res) => {
+  const institutionId = resolveInstitutionId(req);
+  const student = await studentInScope(req.params.id, institutionId);
+  if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
+
+  const currentSemester = await prisma.semester.findFirst({
+    where: { institutionId: student.classRoom.grade.institutionId, endedAt: null },
+  });
+  if (!currentSemester) {
+    return res.json({ months: [], studyDaysAccurate: false });
+  }
+
+  const semesterStart = currentSemester.startedAt.toISOString().slice(0, 10);
+  const today = todayDateString();
+  const rangeEnd = today < semesterStart ? semesterStart : today;
+
+  const monthBounds = new Map<number, { label: string; startISO: string; endISO: string }>();
+  for (const iso of eachDate(semesterStart, rangeEnd)) {
+    const { label, sortKey, startISO, endISO } = await toHebrewMonthKey(iso);
+    if (!monthBounds.has(sortKey)) monthBounds.set(sortKey, { label, startISO, endISO });
+  }
+
+  const events = await prisma.attendanceEvent.findMany({
+    where: { semesterId: currentSemester.id, studentId: student.id, type: { in: ['LATE', 'ABSENCE', 'RELEASE'] } },
+  });
+  const counts = new Map<number, { late: number; absence: number; release: number }>();
+  for (const event of events) {
+    const { sortKey } = await toHebrewMonthKey(event.date);
+    if (!counts.has(sortKey)) counts.set(sortKey, { late: 0, absence: 0, release: 0 });
+    const entry = counts.get(sortKey)!;
+    if (event.type === 'LATE') entry.late += 1;
+    else if (event.type === 'ABSENCE') entry.absence += 1;
+    else entry.release += 1;
+  }
+
+  const months = Array.from(monthBounds.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([sortKey, bounds]) => {
+      const clippedStart = bounds.startISO < semesterStart ? semesterStart : bounds.startISO;
+      const clippedEnd = bounds.endISO > rangeEnd ? rangeEnd : bounds.endISO;
+      const studyDays = countStudyDays(clippedStart, clippedEnd, currentSemester.yearLabel);
+      const c = counts.get(sortKey) ?? { late: 0, absence: 0, release: 0 };
+      return { label: bounds.label, studyDays, ...c };
+    });
+
+  res.json({ months, studyDaysAccurate: hasCalendarData(currentSemester.yearLabel) });
 }));
 
 const createSchema = z.object({

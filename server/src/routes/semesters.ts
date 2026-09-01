@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
-import { endSemester, yearRollover, setCurrentSemesterPlannedEndDate } from '../services/semester';
+import { endSemester, yearRollover, updateCurrentSemesterDates } from '../services/semester';
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
@@ -50,19 +50,24 @@ router.post('/year-rollover', asyncHandler(async (req, res) => {
   }
 }));
 
-const plannedEndDateSchema = z.object({ plannedEndDate: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.null()]) });
+const optionalDateOrNull = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.null()]).optional();
+
+const updateDatesSchema = z.object({
+  plannedEndDate: optionalDateOrNull,
+  nextPlannedEndDate: optionalDateOrNull,
+});
 
 router.patch('/current', asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
-  const parsed = plannedEndDateSchema.safeParse(req.body);
+  const parsed = updateDatesSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'תאריך לא תקין' });
 
   try {
-    const updated = await setCurrentSemesterPlannedEndDate(institutionId, parsed.data.plannedEndDate);
+    const updated = await updateCurrentSemesterDates(institutionId, parsed.data);
     res.json(updated);
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : 'שגיאה בעדכון תאריך סיום המחצית' });
+    res.status(400).json({ error: err instanceof Error ? err.message : 'שגיאה בעדכון תאריכי המחצית' });
   }
 }));
 

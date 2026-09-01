@@ -4,6 +4,7 @@ import { useInstitution } from '../context/InstitutionContext';
 import Modal from '../components/Modal';
 import PasswordInput from '../components/PasswordInput';
 import TrashIcon from '../components/icons/TrashIcon';
+import EditIcon from '../components/icons/EditIcon';
 import type { AppUser, Institution } from '../types';
 
 const ROLE_LABELS: Record<string, string> = { SECRETARY: 'מזכירה', PRINCIPAL: 'מנהלת בית ספר' };
@@ -55,7 +56,12 @@ export default function UsersAdminPage() {
               <span>
                 {inst.name} ({inst._count?.grades ?? 0} שכבות, {inst._count?.users ?? 0} משתמשות)
               </span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditingInstitution(inst)}>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                onClick={() => setEditingInstitution(inst)}
+              >
+                <EditIcon size={14} />
                 עדכון פרטים / לוגו
               </button>
             </li>

@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import Breadcrumbs from '../components/Breadcrumbs';
 import DonutChart from '../components/charts/DonutChart';
 import SeverityGauge from '../components/charts/SeverityGauge';
+import MonthlyIntensityGrid, { type MonthlyRow } from '../components/charts/MonthlyIntensityGrid';
 import TrashIcon from '../components/icons/TrashIcon';
 import { toHebrewDateString } from '../utils/hebrewDate';
 import type { AttendanceEvent, Student } from '../types';
@@ -28,8 +29,6 @@ function eventTypeLabel(event: AttendanceEvent): string {
 const LATE_COLOR = '#d6a44a';
 const ABSENCE_COLOR = '#c0525f';
 const RELEASE_COLOR = '#0f8f82';
-const APPROVED_COLOR = '#5fa77c';
-const UNAPPROVED_COLOR = '#c0525f';
 
 export default function StudentPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,6 +44,7 @@ export default function StudentPage() {
   const [reduceMode, setReduceMode] = useState<'LATE' | 'ABSENCE' | 'RELEASE' | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [reducing, setReducing] = useState(false);
+  const [monthlyRows, setMonthlyRows] = useState<MonthlyRow[]>([]);
 
   const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'SECRETARY';
 
@@ -55,6 +55,10 @@ export default function StudentPage() {
       .get<Student>(`/students/${id}`, { params: scopeParams })
       .then((res) => setStudent(res.data))
       .finally(() => setLoading(false));
+    api
+      .get<{ months: MonthlyRow[] }>(`/students/${id}/monthly`, { params: scopeParams })
+      .then((res) => setMonthlyRows(res.data.months))
+      .catch(() => setMonthlyRows([]));
   }
 
   useEffect(load, [id]);
@@ -275,18 +279,10 @@ export default function StudentPage() {
             </>
           )}
         </div>
-        {student.totalLateCount > 0 && (
-          <div className="dashboard-card" style={{ flex: '1 1 260px' }}>
-            <h2>פילוח איחורים</h2>
-            <DonutChart
-              centerLabel="סה״כ איחורים"
-              segments={[
-                { key: 'approved', label: 'עם אישור', color: APPROVED_COLOR, value: student.totalLateApprovedCount },
-                { key: 'unapproved', label: 'ללא אישור', color: UNAPPROVED_COLOR, value: student.totalLateUnapprovedCount },
-              ]}
-            />
-          </div>
-        )}
+        <div className="dashboard-card" style={{ flex: '1 1 100%' }}>
+          <h2>פילוח חודשי</h2>
+          <MonthlyIntensityGrid months={monthlyRows} />
+        </div>
       </div>
 
       <h2 style={{ color: 'var(--primary-dark)', fontSize: '1.1rem' }}>היסטוריית אירועים</h2>

@@ -14,7 +14,9 @@ export interface Institution {
   currentYearLabel: string | null;
   logoDataUrl?: string | null;
   plannedEndDate?: string | null;
+  nextPlannedEndDate?: string | null;
   studyDaysTotal?: number | null;
+  studyDaysAccurate?: boolean;
   _count?: { users: number; grades: number };
 }
 

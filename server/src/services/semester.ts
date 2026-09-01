@@ -40,12 +40,15 @@ export async function endSemester(institutionId: string, plannedEndDate?: string
     const current = await tx.semester.findFirst({ where: { institutionId, endedAt: null } });
     const yearLabel = current?.yearLabel ?? (await tx.institution.findUniqueOrThrow({ where: { id: institutionId } })).currentYearLabel ?? '';
     const nextTerm = current?.term === 1 ? 2 : 1;
+    // Explicit plannedEndDate wins; otherwise use whatever was pre-set on the
+    // ending semester as "the next semester's expected end date".
+    const resolvedPlannedEndDate = plannedEndDate || current?.nextPlannedEndDate || null;
 
     if (current) {
       await tx.semester.update({ where: { id: current.id }, data: { endedAt: new Date() } });
     }
     const newSemester = await tx.semester.create({
-      data: { institutionId, yearLabel, term: nextTerm, plannedEndDate: plannedEndDate || null },
+      data: { institutionId, yearLabel, term: nextTerm, plannedEndDate: resolvedPlannedEndDate },
     });
     await resetStudentCounters(tx, institutionId);
     return newSemester;
@@ -53,12 +56,17 @@ export async function endSemester(institutionId: string, plannedEndDate?: string
 }
 
 // Updates the planned end date of the institution's currently open semester
-// (e.g. set retroactively, or corrected mid-semester) - used to give the
-// study-days-based severity indicators a fixed denominator.
-export async function setCurrentSemesterPlannedEndDate(institutionId: string, plannedEndDate: string | null) {
+// (e.g. set retroactively, or corrected mid-semester), and/or pre-sets the
+// NEXT semester's planned end date so it's ready before that semester even
+// exists - used to give the study-days-based severity indicators a fixed
+// denominator throughout both semesters.
+export async function updateCurrentSemesterDates(
+  institutionId: string,
+  data: { plannedEndDate?: string | null; nextPlannedEndDate?: string | null }
+) {
   const current = await prisma.semester.findFirst({ where: { institutionId, endedAt: null } });
   if (!current) throw new Error('לא נמצאה מחצית פעילה למוסד זה');
-  return prisma.semester.update({ where: { id: current.id }, data: { plannedEndDate } });
+  return prisma.semester.update({ where: { id: current.id }, data });
 }
 
 export async function yearRollover(institutionId: string, newYearLabel: string, plannedEndDate?: string) {
@@ -106,11 +114,12 @@ export async function yearRollover(institutionId: string, newYearLabel: string, 
     // via "add class" + Excel import, the same as first-time setup.
 
     const current = await tx.semester.findFirst({ where: { institutionId, endedAt: null } });
+    const resolvedPlannedEndDate = plannedEndDate || current?.nextPlannedEndDate || null;
     if (current) {
       await tx.semester.update({ where: { id: current.id }, data: { endedAt: new Date() } });
     }
     await tx.semester.create({
-      data: { institutionId, yearLabel: newYearLabel, term: 1, plannedEndDate: plannedEndDate || null },
+      data: { institutionId, yearLabel: newYearLabel, term: 1, plannedEndDate: resolvedPlannedEndDate },
     });
     await tx.institution.update({ where: { id: institutionId }, data: { currentYearLabel: newYearLabel } });
     await resetStudentCounters(tx, institutionId);

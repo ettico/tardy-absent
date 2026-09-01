@@ -4,21 +4,30 @@ import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
 import { countStudyDays } from '../utils/dates';
+import { hasCalendarData } from '../data/schoolCalendar';
 
 const router = Router();
 router.use(requireAuth);
 
 // Adds the current open semester's planned-end-date and total study-day
-// count (Sun-Thu between semester start and that date) to an institution
-// payload - the fixed denominator the severity indicators are built on.
-// null when no semester is open yet, or no planned end date was set.
+// count (Sun-Thu, minus real school vacations where known) to an
+// institution payload - the fixed denominator the severity indicators are
+// built on. null when no semester is open yet, or no planned end date was
+// set. studyDaysAccurate is false when the semester's year has no vacation
+// calendar data (see schoolCalendar.ts), so the count is a rougher estimate.
 async function withStudyDays<T extends { id: string }>(institution: T) {
   const semester = await prisma.semester.findFirst({ where: { institutionId: institution.id, endedAt: null } });
   const plannedEndDate = semester?.plannedEndDate ?? null;
   const studyDaysTotal = plannedEndDate
-    ? countStudyDays(semester!.startedAt.toISOString().slice(0, 10), plannedEndDate)
+    ? countStudyDays(semester!.startedAt.toISOString().slice(0, 10), plannedEndDate, semester!.yearLabel)
     : null;
-  return { ...institution, plannedEndDate, studyDaysTotal };
+  return {
+    ...institution,
+    plannedEndDate,
+    nextPlannedEndDate: semester?.nextPlannedEndDate ?? null,
+    studyDaysTotal,
+    studyDaysAccurate: hasCalendarData(semester?.yearLabel),
+  };
 }
 
 // Any authenticated role can look up the institution they're currently

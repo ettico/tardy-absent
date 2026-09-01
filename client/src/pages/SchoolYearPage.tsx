@@ -81,19 +81,25 @@ function PlannedEndDateCard({
   onUpdated: () => void;
 }) {
   const [date, setDate] = useState(institution?.plannedEndDate ?? '');
+  const [nextDate, setNextDate] = useState(institution?.nextPlannedEndDate ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     setDate(institution?.plannedEndDate ?? '');
-  }, [institution?.plannedEndDate]);
+    setNextDate(institution?.nextPlannedEndDate ?? '');
+  }, [institution?.plannedEndDate, institution?.nextPlannedEndDate]);
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await api.patch('/semesters/current', { plannedEndDate: date || null, ...scopeParams });
+      await api.patch('/semesters/current', {
+        plannedEndDate: date || null,
+        nextPlannedEndDate: nextDate || null,
+        ...scopeParams,
+      });
       onUpdated();
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -104,19 +110,33 @@ function PlannedEndDateCard({
 
   return (
     <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-      <h2 style={{ marginTop: 0, fontSize: '1.05rem', color: 'var(--primary-dark)' }}>תאריך סיום משוער למחצית הנוכחית</h2>
+      <h2 style={{ marginTop: 0, fontSize: '1.05rem', color: 'var(--primary-dark)' }}>תאריכי סיום משוערים למחציות</h2>
       <p className="empty-note">
-        קובע את מספר ימי הלימוד (ימי ראשון-חמישי) במחצית, שמשמש למדד החריגות בעמוד כל תלמידה - כך שמעט אירועים לא
-        ייראו כמו "מלא" בטעות, וייתן אינדיקציה אמיתית כשמספר האירועים גבוה יחסית לימי הלימוד.
+        קובע את מספר ימי הלימוד (ימי ראשון-חמישי, בניכוי חגים וחופשות ידועים) בכל מחצית, שמשמש למדד החריגות בעמוד כל
+        תלמידה - כך שמעט אירועים לא ייראו כמו "מלא" בטעות, וייתן אינדיקציה אמיתית כשמספר האירועים גבוה יחסית לימי
+        הלימוד.
+        {institution && !institution.studyDaysAccurate && (
+          <>
+            {' '}
+            <b>שימו לב:</b> לשנת הלימודים הנוכחית עדיין אין במערכת לוח חגים מדויק, כך שהספירה כרגע היא הערכה גסה
+            (ימי א׳-ה׳ בלבד, בלי ניכוי חגים) - יש לעדכן זאת ידנית מול הצוות הטכני.
+          </>
+        )}
       </p>
-      <form onSubmit={handleSave} className="action-buttons" style={{ alignItems: 'flex-end' }}>
-        <div className="form-field" style={{ marginBottom: 0 }}>
-          <label>תאריך סיום משוער</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      <form onSubmit={handleSave}>
+        <div className="action-buttons" style={{ alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="form-field" style={{ marginBottom: 0 }}>
+            <label>תאריך סיום משוער - מחצית נוכחית</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="form-field" style={{ marginBottom: 0 }}>
+            <label>תאריך סיום משוער - מחצית הבאה (מוגדר מראש, ייכנס לתוקף אוטומטית כשהיא תתחיל)</label>
+            <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} />
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            שמירה
+          </button>
         </div>
-        <button type="submit" className="btn btn-primary" disabled={saving}>
-          שמירה
-        </button>
       </form>
       {error && <p className="error-text">{error}</p>}
     </div>

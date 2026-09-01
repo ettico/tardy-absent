@@ -22,10 +22,20 @@ const WEEKDAYS_HE = ['יום ראשון', 'יום שני', 'יום שלישי', 
 export interface HebrewMonthKey {
   label: string; // e.g. "אלול תשפ״ו"
   sortKey: number; // absolute day count of the 1st of the month, for chronological ordering
+  startISO: string; // 'YYYY-MM-DD' of the 1st of the Hebrew month, in Gregorian
+  endISO: string; // 'YYYY-MM-DD' of the last day of the Hebrew month, in Gregorian
+}
+
+// HDate.greg() returns a Date normalized to UTC midnight regardless of the
+// server's local timezone, so it must be read back with UTC getters (not
+// local ones) to avoid an off-by-one-day shift on non-UTC deployments.
+function gregToISODate(greg: Date): string {
+  return `${greg.getUTCFullYear()}-${String(greg.getUTCMonth() + 1).padStart(2, '0')}-${String(greg.getUTCDate()).padStart(2, '0')}`;
 }
 
 // isoDate is 'YYYY-MM-DD'. Groups a date into its Hebrew month, for by-month
-// aggregation (e.g. the management dashboard's monthly trend chart).
+// aggregation (e.g. the management dashboard's monthly trend chart, and the
+// per-student monthly severity grid).
 export async function toHebrewMonthKey(isoDate: string): Promise<HebrewMonthKey> {
   const [y, m, d] = isoDate.split('-').map(Number);
   const date = new Date(y, m - 1, d);
@@ -34,7 +44,13 @@ export async function toHebrewMonthKey(isoDate: string): Promise<HebrewMonthKey>
   const monthName = Locale.hebrewStripNikkud(Locale.gettext(hd.getMonthName(), 'he'));
   const yearLabel = gematriya(hd.getFullYear());
   const firstOfMonth = new HDate(1, hd.getMonth(), hd.getFullYear());
-  return { label: `${monthName} ${yearLabel}`, sortKey: firstOfMonth.abs() };
+  const lastOfMonth = new HDate(firstOfMonth.daysInMonth(), hd.getMonth(), hd.getFullYear());
+  return {
+    label: `${monthName} ${yearLabel}`,
+    sortKey: firstOfMonth.abs(),
+    startISO: gregToISODate(firstOfMonth.greg()),
+    endISO: gregToISODate(lastOfMonth.greg()),
+  };
 }
 
 // isoDate is 'YYYY-MM-DD'. Parsed as local calendar date (not UTC) to avoid

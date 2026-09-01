@@ -702,6 +702,47 @@ table.data-table th {
   letter-spacing: 0.01em;
 }
 
+.intensity-grid-wrap {
+  overflow-x: auto;
+}
+.intensity-grid {
+  border-collapse: separate;
+  border-spacing: 3px;
+  margin: 0 auto;
+}
+.intensity-grid th {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 0.3rem 0.5rem;
+  white-space: nowrap;
+}
+.intensity-grid td {
+  width: 44px;
+  height: 34px;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.intensity-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.intensity-legend-bar {
+  display: inline-block;
+  width: 100px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to left, rgb(247, 217, 220), rgb(122, 31, 43));
+}
+
 .donut-wrap {
   display: flex;
   flex-direction: column;
