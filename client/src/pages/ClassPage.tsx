@@ -6,6 +6,7 @@ import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
 import Breadcrumbs from '../components/Breadcrumbs';
 import TrashIcon from '../components/icons/TrashIcon';
+import PdfIcon from '../components/icons/PdfIcon';
 import type { ClassRoom, Student } from '../types';
 
 export default function ClassPage() {
@@ -102,15 +103,6 @@ export default function ClassPage() {
           <span className="stat-pill">שכבת {classRoom.grade?.name}</span>
         </div>
         <div className="action-buttons">
-          <Link to={`/reports/class/${classRoom.id}/print`} className="btn btn-outline" target="_blank">
-            דוח סיכום איחורים וחיסורים
-          </Link>
-          <Link to={`/reports/class/${classRoom.id}/lateness`} className="btn btn-outline" target="_blank">
-            דוח איחורים (עם/ללא אישור)
-          </Link>
-          <Link to={`/reports/class/${classRoom.id}/booklet`} className="btn btn-outline" target="_blank">
-            חוברת מפורטת למורה
-          </Link>
           {canEdit && (
             <>
               <button className="btn btn-outline" onClick={() => setShowImport(true)}>
@@ -132,6 +124,39 @@ export default function ClassPage() {
               </button>
             </>
           )}
+        </div>
+      </div>
+
+      <div className="report-actions-bar">
+        <div className="report-actions-title">הפקת דוחות תקופתיים</div>
+        <div className="action-buttons">
+          <Link
+            to={`/reports/class/${classRoom.id}/print`}
+            className="btn btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
+            target="_blank"
+          >
+            <PdfIcon size={16} />
+            דוח סיכום איחורים וחיסורים
+          </Link>
+          <Link
+            to={`/reports/class/${classRoom.id}/lateness`}
+            className="btn btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
+            target="_blank"
+          >
+            <PdfIcon size={16} />
+            דוח איחורים (עם/ללא אישור)
+          </Link>
+          <Link
+            to={`/reports/class/${classRoom.id}/booklet`}
+            className="btn btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
+            target="_blank"
+          >
+            <PdfIcon size={16} />
+            חוברת מפורטת למורה
+          </Link>
         </div>
       </div>
 

@@ -3,9 +3,23 @@ import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
+import { countStudyDays } from '../utils/dates';
 
 const router = Router();
 router.use(requireAuth);
+
+// Adds the current open semester's planned-end-date and total study-day
+// count (Sun-Thu between semester start and that date) to an institution
+// payload - the fixed denominator the severity indicators are built on.
+// null when no semester is open yet, or no planned end date was set.
+async function withStudyDays<T extends { id: string }>(institution: T) {
+  const semester = await prisma.semester.findFirst({ where: { institutionId: institution.id, endedAt: null } });
+  const plannedEndDate = semester?.plannedEndDate ?? null;
+  const studyDaysTotal = plannedEndDate
+    ? countStudyDays(semester!.startedAt.toISOString().slice(0, 10), plannedEndDate)
+    : null;
+  return { ...institution, plannedEndDate, studyDaysTotal };
+}
 
 // Any authenticated role can look up the institution they're currently
 // scoped to (a secretary/principal's own institution, or the one a system
@@ -15,7 +29,7 @@ router.get('/current', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), as
   if (!institutionId) return res.status(400).json({ error: 'לא נבחר מוסד' });
   const institution = await prisma.institution.findUnique({ where: { id: institutionId } });
   if (!institution) return res.status(404).json({ error: 'מוסד לא נמצא' });
-  res.json(institution);
+  res.json(await withStudyDays(institution));
 }));
 
 // Everything else here manages institutions themselves - global SYSTEM_ADMIN only.
@@ -26,7 +40,7 @@ router.get('/', asyncHandler(async (_req, res) => {
     orderBy: { createdAt: 'asc' },
     include: { _count: { select: { users: true, grades: true } } },
   });
-  res.json(institutions);
+  res.json(await Promise.all(institutions.map(withStudyDays)));
 }));
 
 const MAX_LOGO_DATA_URL_LENGTH = 3_000_000; // ~2MB image, base64-inflated
@@ -41,6 +55,7 @@ const createSchema = z.object({
   name: z.string().min(2),
   initialYearLabel: z.string().optional(),
   logoDataUrl: logoField,
+  plannedEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 router.post('/', asyncHandler(async (req, res) => {
@@ -56,7 +71,12 @@ router.post('/', asyncHandler(async (req, res) => {
     },
   });
   await prisma.semester.create({
-    data: { institutionId: institution.id, yearLabel: parsed.data.initialYearLabel || '', term: 1 },
+    data: {
+      institutionId: institution.id,
+      yearLabel: parsed.data.initialYearLabel || '',
+      term: 1,
+      plannedEndDate: parsed.data.plannedEndDate || null,
+    },
   });
   res.status(201).json(institution);
 }));

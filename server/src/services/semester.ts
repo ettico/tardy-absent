@@ -35,7 +35,7 @@ async function resetStudentCounters(tx: Tx, institutionId: string) {
   });
 }
 
-export async function endSemester(institutionId: string) {
+export async function endSemester(institutionId: string, plannedEndDate?: string) {
   return prisma.$transaction(async (tx) => {
     const current = await tx.semester.findFirst({ where: { institutionId, endedAt: null } });
     const yearLabel = current?.yearLabel ?? (await tx.institution.findUniqueOrThrow({ where: { id: institutionId } })).currentYearLabel ?? '';
@@ -44,13 +44,24 @@ export async function endSemester(institutionId: string) {
     if (current) {
       await tx.semester.update({ where: { id: current.id }, data: { endedAt: new Date() } });
     }
-    const newSemester = await tx.semester.create({ data: { institutionId, yearLabel, term: nextTerm } });
+    const newSemester = await tx.semester.create({
+      data: { institutionId, yearLabel, term: nextTerm, plannedEndDate: plannedEndDate || null },
+    });
     await resetStudentCounters(tx, institutionId);
     return newSemester;
   });
 }
 
-export async function yearRollover(institutionId: string, newYearLabel: string) {
+// Updates the planned end date of the institution's currently open semester
+// (e.g. set retroactively, or corrected mid-semester) - used to give the
+// study-days-based severity indicators a fixed denominator.
+export async function setCurrentSemesterPlannedEndDate(institutionId: string, plannedEndDate: string | null) {
+  const current = await prisma.semester.findFirst({ where: { institutionId, endedAt: null } });
+  if (!current) throw new Error('לא נמצאה מחצית פעילה למוסד זה');
+  return prisma.semester.update({ where: { id: current.id }, data: { plannedEndDate } });
+}
+
+export async function yearRollover(institutionId: string, newYearLabel: string, plannedEndDate?: string) {
   return prisma.$transaction(async (tx) => {
     const grades = await tx.grade.findMany({
       where: { institutionId },
@@ -98,7 +109,9 @@ export async function yearRollover(institutionId: string, newYearLabel: string) 
     if (current) {
       await tx.semester.update({ where: { id: current.id }, data: { endedAt: new Date() } });
     }
-    await tx.semester.create({ data: { institutionId, yearLabel: newYearLabel, term: 1 } });
+    await tx.semester.create({
+      data: { institutionId, yearLabel: newYearLabel, term: 1, plannedEndDate: plannedEndDate || null },
+    });
     await tx.institution.update({ where: { id: institutionId }, data: { currentYearLabel: newYearLabel } });
     await resetStudentCounters(tx, institutionId);
 

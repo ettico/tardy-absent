@@ -171,6 +171,7 @@ const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('');
   const [initialYearLabel, setInitialYearLabel] = useState('');
+  const [plannedEndDate, setPlannedEndDate] = useState('');
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -191,7 +192,12 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
     setSaving(true);
     setError('');
     try {
-      await api.post('/institutions', { name, initialYearLabel, logoDataUrl: logoDataUrl ?? undefined });
+      await api.post('/institutions', {
+        name,
+        initialYearLabel,
+        plannedEndDate: plannedEndDate || undefined,
+        logoDataUrl: logoDataUrl ?? undefined,
+      });
       onCreated();
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -210,6 +216,10 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
         <div className="form-field">
           <label>שנת לימודים נוכחית (למשל תשפ״ו) - אופציונלי</label>
           <input value={initialYearLabel} onChange={(e) => setInitialYearLabel(e.target.value)} />
+        </div>
+        <div className="form-field">
+          <label>תאריך סיום משוער למחצית הראשונה (אופציונלי, ניתן להגדיר גם מאוחר יותר)</label>
+          <input type="date" value={plannedEndDate} onChange={(e) => setPlannedEndDate(e.target.value)} />
         </div>
         <div className="form-field">
           <label>לוגו המוסד (אופציונלי, עד 2MB) - יוצג למשתמשות המוסד לאחר התחברות</label>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
 import { downloadExcel } from '../utils/download';
+import ReportActionBar from '../components/ReportActionBar';
 
 interface AtRiskStudent {
   fullName: string;
@@ -28,15 +29,11 @@ export default function AtRiskReportPage() {
     <div>
       <div className="page-header">
         <h1>איתור תלמידות בחריגה</h1>
-        <div className="action-buttons">
-          <button className="btn btn-outline" onClick={() => window.print()}>
-            הדפסה / PDF
-          </button>
-          <button className="btn btn-outline" onClick={() => downloadExcel('/reports/at-risk', scopeParams, 'תלמידות-בחריגה.xlsx')}>
-            הורדת אקסל
-          </button>
-        </div>
       </div>
+      <ReportActionBar
+        onPrint={() => window.print()}
+        onExcel={() => downloadExcel('/reports/at-risk', scopeParams, 'תלמידות-בחריגה.xlsx')}
+      />
       <p className="empty-note">
         תלמידות שהגיעו למחזור של 8 איחורים לפחות פעם אחת במהלך המחצית הנוכחית, כולל מי שהופנתה להנהלה.
       </p>

@@ -24,22 +24,25 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
   );
   const [ownInstitution, setOwnInstitution] = useState<Institution | null>(null);
 
+  // Refreshes whichever institution data this role actually uses - the full
+  // list for a system admin (who picks one), or just their own institution
+  // for a secretary/principal. Safe to call after any change that affects
+  // the current institution's data (e.g. setting a semester's planned end date).
   const refreshInstitutions = () => {
-    if (user?.role !== 'SYSTEM_ADMIN') return;
-    api.get<Institution[]>('/institutions').then((res) => {
-      setInstitutions(res.data);
-      if (!selectedInstitutionId && res.data.length > 0) {
-        setSelectedInstitutionId(res.data[0].id);
-      }
-    });
-  };
-
-  useEffect(() => {
     if (user?.role === 'SYSTEM_ADMIN') {
-      refreshInstitutions();
+      api.get<Institution[]>('/institutions').then((res) => {
+        setInstitutions(res.data);
+        if (!selectedInstitutionId && res.data.length > 0) {
+          setSelectedInstitutionId(res.data[0].id);
+        }
+      });
     } else if (user) {
       api.get<Institution>('/institutions/current').then((res) => setOwnInstitution(res.data));
     }
+  };
+
+  useEffect(() => {
+    refreshInstitutions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role, user?.institutionId]);
 

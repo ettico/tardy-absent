@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
 import { downloadExcel } from '../utils/download';
+import ReportActionBar from '../components/ReportActionBar';
 
 interface GradeSummary {
   gradeName: string;
@@ -34,18 +35,11 @@ export default function InstitutionSummaryPage() {
     <div>
       <div className="page-header">
         <h1>דוח מנהלים - סיכום בית ספר</h1>
-        <div className="action-buttons">
-          <button className="btn btn-outline" onClick={() => window.print()}>
-            הדפסה / PDF
-          </button>
-          <button
-            className="btn btn-outline"
-            onClick={() => downloadExcel('/reports/institution-summary', scopeParams, 'סיכום-בית-ספר.xlsx')}
-          >
-            הורדת אקסל
-          </button>
-        </div>
       </div>
+      <ReportActionBar
+        onPrint={() => window.print()}
+        onExcel={() => downloadExcel('/reports/institution-summary', scopeParams, 'סיכום-בית-ספר.xlsx')}
+      />
       <p className="empty-note">ריכוז נתוני כלל השכבות, לשימוש בישיבות סוף מחצית.</p>
       {!grades || !totals ? (
         <p className="spinner-note">טוענת...</p>

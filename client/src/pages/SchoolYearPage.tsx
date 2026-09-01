@@ -35,6 +35,8 @@ export default function SchoolYearPage() {
         </p>
       </div>
 
+      <PlannedEndDateCard institution={institution} scopeParams={scopeParams} onUpdated={loadInstitution} />
+
       <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
         <h2 style={{ marginTop: 0, fontSize: '1.05rem', color: 'var(--primary-dark)' }}>סיום מחצית</h2>
         <p className="empty-note">
@@ -69,6 +71,58 @@ export default function SchoolYearPage() {
   );
 }
 
+function PlannedEndDateCard({
+  institution,
+  scopeParams,
+  onUpdated,
+}: {
+  institution: Institution | null;
+  scopeParams: { institutionId?: string };
+  onUpdated: () => void;
+}) {
+  const [date, setDate] = useState(institution?.plannedEndDate ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setDate(institution?.plannedEndDate ?? '');
+  }, [institution?.plannedEndDate]);
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await api.patch('/semesters/current', { plannedEndDate: date || null, ...scopeParams });
+      onUpdated();
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
+      <h2 style={{ marginTop: 0, fontSize: '1.05rem', color: 'var(--primary-dark)' }}>תאריך סיום משוער למחצית הנוכחית</h2>
+      <p className="empty-note">
+        קובע את מספר ימי הלימוד (ימי ראשון-חמישי) במחצית, שמשמש למדד החריגות בעמוד כל תלמידה - כך שמעט אירועים לא
+        ייראו כמו "מלא" בטעות, וייתן אינדיקציה אמיתית כשמספר האירועים גבוה יחסית לימי הלימוד.
+      </p>
+      <form onSubmit={handleSave} className="action-buttons" style={{ alignItems: 'flex-end' }}>
+        <div className="form-field" style={{ marginBottom: 0 }}>
+          <label>תאריך סיום משוער</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          שמירה
+        </button>
+      </form>
+      {error && <p className="error-text">{error}</p>}
+    </div>
+  );
+}
+
 function EndSemesterModal({
   scopeParams,
   onClose,
@@ -77,6 +131,7 @@ function EndSemesterModal({
   onClose: () => void;
 }) {
   const [confirmText, setConfirmText] = useState('');
+  const [plannedEndDate, setPlannedEndDate] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -86,7 +141,7 @@ function EndSemesterModal({
     setSaving(true);
     setError('');
     try {
-      await api.post('/semesters/end', scopeParams);
+      await api.post('/semesters/end', { plannedEndDate: plannedEndDate || undefined, ...scopeParams });
       setDone(true);
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -109,6 +164,10 @@ function EndSemesterModal({
       ) : (
         <form onSubmit={handleSubmit}>
           <p className="error-text">פעולה זו תאפס את מוני האיחורים/חיסורים/שחרורים של כל התלמידות במוסד.</p>
+          <div className="form-field">
+            <label>תאריך סיום משוער למחצית החדשה (אופציונלי, ניתן להגדיר גם מאוחר יותר)</label>
+            <input type="date" value={plannedEndDate} onChange={(e) => setPlannedEndDate(e.target.value)} />
+          </div>
           <div className="form-field">
             <label>כדי לאשר, הקלידי "סיום מחצית"</label>
             <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} required />
@@ -138,6 +197,7 @@ function YearRolloverModal({
   onDone: () => void;
 }) {
   const [newYearLabel, setNewYearLabel] = useState('');
+  const [plannedEndDate, setPlannedEndDate] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ promotedGrades: number; graduatedClasses: number } | null>(null);
@@ -147,7 +207,11 @@ function YearRolloverModal({
     setSaving(true);
     setError('');
     try {
-      const res = await api.post('/semesters/year-rollover', { newYearLabel, ...scopeParams });
+      const res = await api.post('/semesters/year-rollover', {
+        newYearLabel,
+        plannedEndDate: plannedEndDate || undefined,
+        ...scopeParams,
+      });
       setResult(res.data);
       onDone();
     } catch (err) {
@@ -179,6 +243,10 @@ function YearRolloverModal({
           <div className="form-field">
             <label>שנת הלימודים החדשה (למשל תשפ״ז)</label>
             <input value={newYearLabel} onChange={(e) => setNewYearLabel(e.target.value)} required autoFocus />
+          </div>
+          <div className="form-field">
+            <label>תאריך סיום משוער למחצית החדשה (אופציונלי, ניתן להגדיר גם מאוחר יותר)</label>
+            <input type="date" value={plannedEndDate} onChange={(e) => setPlannedEndDate(e.target.value)} />
           </div>
           {error && <p className="error-text">{error}</p>}
           <div className="modal-actions">

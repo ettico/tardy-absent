@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
 import { downloadExcel } from '../utils/download';
+import ReportActionBar from '../components/ReportActionBar';
 
 interface BookletEvent {
   type: 'LATE' | 'ABSENCE' | 'RELEASE';
@@ -42,19 +43,13 @@ export default function ClassBookletPrintPage() {
 
   return (
     <div>
-      <div className="no-print action-buttons" style={{ marginBottom: '1rem' }}>
-        <button className="btn btn-primary" onClick={() => window.print()}>
-          הדפסה / שמירה כ-PDF
-        </button>
-        <button
-          className="btn btn-outline"
-          onClick={() =>
-            classId && downloadExcel(`/reports/class/${classId}/booklet`, scopeParams, `חוברת-כיתה-${data.className}.xlsx`)
-          }
-        >
-          הורדת אקסל
-        </button>
-      </div>
+      <ReportActionBar
+        className="no-print"
+        onPrint={() => window.print()}
+        onExcel={() =>
+          classId && downloadExcel(`/reports/class/${classId}/booklet`, scopeParams, `חוברת-כיתה-${data.className}.xlsx`)
+        }
+      />
       <h1>
         חוברת איחורים וחיסורים - כיתה {data.className} (שכבת {data.gradeName})
       </h1>

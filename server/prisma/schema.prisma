@@ -40,6 +40,7 @@ model Semester {
   term          Int // 1 or 2
   startedAt     DateTime      @default(now())
   endedAt       DateTime?
+  plannedEndDate String? // 'YYYY-MM-DD' - expected end date, set by the institution so study-day-based indicators have a fixed denominator
   events        AttendanceEvent[]
 
   @@index([institutionId])

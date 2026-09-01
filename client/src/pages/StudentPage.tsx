@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api, apiErrorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useInstitution } from '../context/InstitutionContext';
 import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
 import Breadcrumbs from '../components/Breadcrumbs';
 import DonutChart from '../components/charts/DonutChart';
+import SeverityGauge from '../components/charts/SeverityGauge';
 import TrashIcon from '../components/icons/TrashIcon';
 import { toHebrewDateString } from '../utils/hebrewDate';
 import type { AttendanceEvent, Student } from '../types';
@@ -32,6 +34,7 @@ const UNAPPROVED_COLOR = '#c0525f';
 export default function StudentPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { currentInstitution } = useInstitution();
   const scopeParams = useScopeParams();
   const navigate = useNavigate();
   const [student, setStudent] = useState<Student | null>(null);
@@ -247,16 +250,30 @@ export default function StudentPage() {
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
-        <div className="dashboard-card" style={{ flex: '1 1 260px' }}>
-          <h2>סטטוס במחצית הנוכחית</h2>
-          <DonutChart
-            centerLabel="סה״כ אירועים"
-            segments={[
-              { key: 'late', label: 'איחורים', color: LATE_COLOR, value: student.totalLateCount },
-              { key: 'absence', label: 'חיסורים', color: ABSENCE_COLOR, value: student.totalAbsenceCount },
-              { key: 'release', label: 'שחרורים', color: RELEASE_COLOR, value: student.totalReleaseCount },
-            ]}
-          />
+        <div className="dashboard-card" style={{ flex: '1 1 100%' }}>
+          <h2>מדד חריגות ביחס לימי הלימוד במחצית</h2>
+          {currentInstitution?.studyDaysTotal ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'center' }}>
+              <SeverityGauge label="איחורים" count={student.totalLateCount} studyDaysTotal={currentInstitution.studyDaysTotal} color={LATE_COLOR} />
+              <SeverityGauge label="חיסורים" count={student.totalAbsenceCount} studyDaysTotal={currentInstitution.studyDaysTotal} color={ABSENCE_COLOR} />
+              <SeverityGauge label="שחרורים" count={student.totalReleaseCount} studyDaysTotal={currentInstitution.studyDaysTotal} color={RELEASE_COLOR} />
+            </div>
+          ) : (
+            <>
+              <DonutChart
+                centerLabel="סה״כ אירועים"
+                segments={[
+                  { key: 'late', label: 'איחורים', color: LATE_COLOR, value: student.totalLateCount },
+                  { key: 'absence', label: 'חיסורים', color: ABSENCE_COLOR, value: student.totalAbsenceCount },
+                  { key: 'release', label: 'שחרורים', color: RELEASE_COLOR, value: student.totalReleaseCount },
+                ]}
+              />
+              <p className="empty-note" style={{ marginTop: '0.75rem' }}>
+                לקבלת מדד מדויק יותר ביחס למספר ימי הלימוד שחלפו במחצית, יש להגדיר תאריך סיום משוער למחצית בעמוד
+                "סיום מחצית / מעבר שנה".
+              </p>
+            </>
+          )}
         </div>
         {student.totalLateCount > 0 && (
           <div className="dashboard-card" style={{ flex: '1 1 260px' }}>

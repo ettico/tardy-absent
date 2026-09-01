@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useScopeParams } from '../hooks/useScope';
 import { toHebrewDateString } from '../utils/hebrewDate';
 import { downloadExcel } from '../utils/download';
+import ReportActionBar from '../components/ReportActionBar';
 
 interface ReportStudent {
   fullName: string;
@@ -37,17 +38,11 @@ export default function ReportPrintPage() {
 
   return (
     <div>
-      <div className="no-print action-buttons" style={{ marginBottom: '1rem' }}>
-        <button className="btn btn-primary" onClick={() => window.print()}>
-          הדפסה / שמירה כ-PDF
-        </button>
-        <button
-          className="btn btn-outline"
-          onClick={() => classId && downloadExcel(`/reports/class/${classId}`, scopeParams, `דוח-כיתה-${report.className}.xlsx`)}
-        >
-          הורדת אקסל
-        </button>
-      </div>
+      <ReportActionBar
+        className="no-print"
+        onPrint={() => window.print()}
+        onExcel={() => classId && downloadExcel(`/reports/class/${classId}`, scopeParams, `דוח-כיתה-${report.className}.xlsx`)}
+      />
       <h1>
         דוח איחורים וחיסורים - כיתה {report.className} (שכבת {report.gradeName})
       </h1>

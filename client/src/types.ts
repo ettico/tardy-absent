@@ -13,6 +13,8 @@ export interface Institution {
   name: string;
   currentYearLabel: string | null;
   logoDataUrl?: string | null;
+  plannedEndDate?: string | null;
+  studyDaysTotal?: number | null;
   _count?: { users: number; grades: number };
 }
 
