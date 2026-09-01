@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
+import { sortByFamilyName } from '../utils/names';
 
 const router = Router();
 router.use(requireAuth);
@@ -24,7 +25,7 @@ router.get('/:id', requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'), asyncH
   if (institutionId && classRoom.grade.institutionId !== institutionId) {
     return res.status(403).json({ error: 'אין הרשאה לצפות בכיתה זו' });
   }
-  res.json(classRoom);
+  res.json({ ...classRoom, students: sortByFamilyName(classRoom.students) });
 }));
 
 const createSchema = z.object({

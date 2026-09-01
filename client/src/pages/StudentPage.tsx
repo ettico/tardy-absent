@@ -13,6 +13,8 @@ const EVENT_LABELS: Record<string, string> = { LATE: 'איחור', ABSENCE: 'ח�
 const LATE_COLOR = '#d6a44a';
 const ABSENCE_COLOR = '#c0525f';
 const RELEASE_COLOR = '#0f8f82';
+const APPROVED_COLOR = '#5fa77c';
+const UNAPPROVED_COLOR = '#c0525f';
 
 export default function StudentPage() {
   const { id } = useParams<{ id: string }>();
@@ -44,11 +46,13 @@ export default function StudentPage() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function handleAction(action: 'late' | 'absence' | 'release') {
+  async function handleAction(action: 'late' | 'absence' | 'release', approved?: boolean) {
     if (!student || pendingAction) return;
-    setPendingAction(action);
+    const pendingKey = action === 'late' ? `late:${approved ? 'approved' : 'unapproved'}` : action;
+    setPendingAction(pendingKey);
     try {
-      const res = await api.post(`/students/${student.id}/${action}`, scopeParams);
+      const body = action === 'late' ? { approved, ...scopeParams } : scopeParams;
+      const res = await api.post(`/students/${student.id}/${action}`, body);
       if (res.data.ok === false) showToast(res.data.message ?? 'הפעולה לא בוצעה', true);
       else if (res.data.message) showToast(res.data.message);
       load();
@@ -144,14 +148,27 @@ export default function StudentPage() {
       <div className="card" style={{ padding: '1.25rem', marginBottom: '1.25rem' }}>
         <div className="action-buttons" style={{ marginBottom: '1rem' }}>
           <span className="stat-pill">סה"כ איחורים במחצית: {student.totalLateCount}</span>
+          <span className="stat-pill">מתוכם עם אישור: {student.totalLateApprovedCount}</span>
+          <span className="stat-pill">מתוכם ללא אישור: {student.totalLateUnapprovedCount}</span>
           <span className="stat-pill">סה"כ חיסורים במחצית: {student.totalAbsenceCount}</span>
           <span className="stat-pill">סה"כ שחרורים במחצית: {student.totalReleaseCount}</span>
           <span className="stat-pill">איחורים במחזור הנוכחי: {student.cycleLateCount}/8</span>
         </div>
         {canEdit && (
           <div className="action-buttons">
-            <button className="btn btn-late" disabled={pendingAction === 'late'} onClick={() => handleAction('late')}>
-              איחור
+            <button
+              className="btn btn-late"
+              disabled={pendingAction === 'late:approved'}
+              onClick={() => handleAction('late', true)}
+            >
+              איחור מאושר
+            </button>
+            <button
+              className="btn btn-late btn-late-unapproved"
+              disabled={pendingAction === 'late:unapproved'}
+              onClick={() => handleAction('late', false)}
+            >
+              איחור לא מאושר
             </button>
             <button
               className="btn btn-absence"
@@ -185,16 +202,30 @@ export default function StudentPage() {
         )}
       </div>
 
-      <div className="dashboard-card">
-        <h2>סטטוס במחצית הנוכחית</h2>
-        <DonutChart
-          centerLabel="סה״כ אירועים"
-          segments={[
-            { key: 'late', label: 'איחורים', color: LATE_COLOR, value: student.totalLateCount },
-            { key: 'absence', label: 'חיסורים', color: ABSENCE_COLOR, value: student.totalAbsenceCount },
-            { key: 'release', label: 'שחרורים', color: RELEASE_COLOR, value: student.totalReleaseCount },
-          ]}
-        />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
+        <div className="dashboard-card" style={{ flex: '1 1 260px' }}>
+          <h2>סטטוס במחצית הנוכחית</h2>
+          <DonutChart
+            centerLabel="סה״כ אירועים"
+            segments={[
+              { key: 'late', label: 'איחורים', color: LATE_COLOR, value: student.totalLateCount },
+              { key: 'absence', label: 'חיסורים', color: ABSENCE_COLOR, value: student.totalAbsenceCount },
+              { key: 'release', label: 'שחרורים', color: RELEASE_COLOR, value: student.totalReleaseCount },
+            ]}
+          />
+        </div>
+        {student.totalLateCount > 0 && (
+          <div className="dashboard-card" style={{ flex: '1 1 260px' }}>
+            <h2>פילוח איחורים</h2>
+            <DonutChart
+              centerLabel="סה״כ איחורים"
+              segments={[
+                { key: 'approved', label: 'עם אישור', color: APPROVED_COLOR, value: student.totalLateApprovedCount },
+                { key: 'unapproved', label: 'ללא אישור', color: UNAPPROVED_COLOR, value: student.totalLateUnapprovedCount },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       <h2 style={{ color: 'var(--primary-dark)', fontSize: '1.1rem' }}>היסטוריית אירועים</h2>

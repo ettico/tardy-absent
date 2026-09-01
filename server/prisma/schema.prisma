@@ -18,6 +18,7 @@ model Institution {
   id               String   @id @default(cuid())
   name             String
   currentYearLabel String? // e.g. "תשפ״ו", set on institution creation or the first year-rollover
+  logoDataUrl      String? // data: URL, shown to this institution's users after login
   createdAt        DateTime @default(now())
 
   users     User[]
@@ -98,9 +99,11 @@ model Student {
   classRoom  ClassRoom @relation(fields: [classId], references: [id])
 
   // semester-wide totals
-  totalLateCount    Int @default(0)
-  totalAbsenceCount Int @default(0)
-  totalReleaseCount Int @default(0)
+  totalLateCount           Int @default(0)
+  totalLateApprovedCount   Int @default(0) // subset of totalLateCount: late events marked "with permission"
+  totalLateUnapprovedCount Int @default(0) // subset of totalLateCount: late events marked "without permission"
+  totalAbsenceCount        Int @default(0)
+  totalReleaseCount        Int @default(0)
 
   // "cycle" of 8 lates before an assignment is required
   cycleLateCount        Int     @default(0)
@@ -121,6 +124,7 @@ model AttendanceEvent {
   date       String // YYYY-MM-DD
   time       String? // HH:mm - relevant for LATE
   overflow   Boolean   @default(false) // true = a LATE recorded while student is blocked (9th+ in cycle)
+  lateApproved Boolean? // for type='LATE' only: true = with permission, false = without permission
   semesterId String?
   semester   Semester? @relation(fields: [semesterId], references: [id])
   createdBy  String?

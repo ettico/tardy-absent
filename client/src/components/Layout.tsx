@@ -11,13 +11,16 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function Layout() {
   const { user, logout } = useAuth();
-  const { institutions, selectedInstitutionId, setSelectedInstitutionId } = useInstitution();
+  const { institutions, selectedInstitutionId, setSelectedInstitutionId, currentInstitution } = useInstitution();
   const navigate = useNavigate();
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <Link to="/" className="topbar-title">
+        <Link to="/" className="topbar-title topbar-title-wrap">
+          {currentInstitution?.logoDataUrl && (
+            <img src={currentInstitution.logoDataUrl} alt={currentInstitution.name} className="institution-logo" />
+          )}
           מערכת איחורים וחיסורים
         </Link>
         <nav className="topbar-nav">
@@ -64,7 +67,12 @@ export default function Layout() {
               ))}
             </select>
           )}
-          {user && <span className="role-badge">{ROLE_LABELS[user.role]}</span>}
+          {user && (
+            <span className="role-badge">
+              {ROLE_LABELS[user.role]}
+              {user.role !== 'SYSTEM_ADMIN' && currentInstitution ? ` · ${currentInstitution.name}` : ''}
+            </span>
+          )}
           <span>{user?.fullName}</span>
           <button
             className="btn btn-ghost btn-sm"

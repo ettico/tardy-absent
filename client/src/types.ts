@@ -12,6 +12,7 @@ export interface Institution {
   id: string;
   name: string;
   currentYearLabel: string | null;
+  logoDataUrl?: string | null;
   _count?: { users: number; grades: number };
 }
 
@@ -39,6 +40,8 @@ export interface Student {
   nationalId: string;
   classId: string;
   totalLateCount: number;
+  totalLateApprovedCount: number;
+  totalLateUnapprovedCount: number;
   totalAbsenceCount: number;
   totalReleaseCount: number;
   cycleLateCount: number;
@@ -57,6 +60,7 @@ export interface AttendanceEvent {
   date: string;
   time: string | null;
   overflow: boolean;
+  lateApproved: boolean | null;
   createdAt: string;
 }
 

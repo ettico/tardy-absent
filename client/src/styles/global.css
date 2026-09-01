@@ -85,6 +85,19 @@ a {
   white-space: nowrap;
 }
 
+.topbar-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.institution-logo {
+  height: 32px;
+  width: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
 .topbar-nav {
   display: flex;
   align-items: center;
@@ -239,6 +252,15 @@ a {
 .btn-late:hover:not(:disabled) {
   background: var(--late-color);
   color: white;
+}
+
+.btn-late-unapproved {
+  background: transparent;
+  border-style: dashed;
+}
+.btn-late-unapproved:hover:not(:disabled) {
+  background: var(--warning-bg);
+  color: #8a6116;
 }
 
 .btn-absence {

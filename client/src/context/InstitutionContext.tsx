@@ -8,6 +8,7 @@ interface InstitutionContextValue {
   selectedInstitutionId: string | null;
   setSelectedInstitutionId: (id: string) => void;
   refreshInstitutions: () => void;
+  currentInstitution: Institution | null;
 }
 
 const InstitutionContext = createContext<InstitutionContextValue | undefined>(undefined);
@@ -21,6 +22,7 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
   const [selectedInstitutionId, setSelectedInstitutionIdState] = useState<string | null>(
     () => localStorage.getItem('selectedInstitutionId')
   );
+  const [ownInstitution, setOwnInstitution] = useState<Institution | null>(null);
 
   const refreshInstitutions = () => {
     if (user?.role !== 'SYSTEM_ADMIN') return;
@@ -33,18 +35,27 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    refreshInstitutions();
+    if (user?.role === 'SYSTEM_ADMIN') {
+      refreshInstitutions();
+    } else if (user) {
+      api.get<Institution>('/institutions/current').then((res) => setOwnInstitution(res.data));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role]);
+  }, [user?.role, user?.institutionId]);
 
   const setSelectedInstitutionId = (id: string) => {
     localStorage.setItem('selectedInstitutionId', id);
     setSelectedInstitutionIdState(id);
   };
 
+  const currentInstitution =
+    user?.role === 'SYSTEM_ADMIN'
+      ? institutions.find((inst) => inst.id === selectedInstitutionId) ?? null
+      : ownInstitution;
+
   const value = useMemo(
-    () => ({ institutions, selectedInstitutionId, setSelectedInstitutionId, refreshInstitutions }),
-    [institutions, selectedInstitutionId]
+    () => ({ institutions, selectedInstitutionId, setSelectedInstitutionId, refreshInstitutions, currentInstitution }),
+    [institutions, selectedInstitutionId, currentInstitution]
   );
 
   return <InstitutionContext.Provider value={value}>{children}</InstitutionContext.Provider>;

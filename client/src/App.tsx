@@ -10,6 +10,7 @@ import StudentPage from './pages/StudentPage';
 import UsersAdminPage from './pages/UsersAdminPage';
 import ReportPrintPage from './pages/ReportPrintPage';
 import ClassBookletPrintPage from './pages/ClassBookletPrintPage';
+import LatenessReportPage from './pages/LatenessReportPage';
 import LetterPrintPage from './pages/LetterPrintPage';
 import AtRiskReportPage from './pages/AtRiskReportPage';
 import InstitutionSummaryPage from './pages/InstitutionSummaryPage';
@@ -38,6 +39,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <ClassBookletPrintPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/reports/class/:classId/lateness"
+            element={
+              <RequireAuth>
+                <LatenessReportPage />
               </RequireAuth>
             }
           />

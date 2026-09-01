@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prismaClient';
 import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
+import { sortByFamilyName } from '../utils/names';
 
 const router = Router();
 router.use(requireAuth, requireRole('SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL'));
@@ -29,7 +30,7 @@ router.get('/', asyncHandler(async (req, res) => {
   ]);
 
   res.json({
-    students: students.map((s) => ({
+    students: sortByFamilyName(students).map((s) => ({
       id: s.id,
       fullName: s.fullName,
       className: s.classRoom.name,

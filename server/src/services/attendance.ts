@@ -62,7 +62,7 @@ export async function markAbsence(studentId: string): Promise<ActionResult> {
 // assignment isn't submitted. `blocked` is a status flag only (drives the
 // badge, the parent-letter option and the one principal email on the 9th) -
 // it never prevents recording a late.
-export async function markLate(studentId: string): Promise<ActionResult> {
+export async function markLate(studentId: string, approved: boolean): Promise<ActionResult> {
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) throw new NotFoundError();
 
@@ -76,6 +76,16 @@ export async function markLate(studentId: string): Promise<ActionResult> {
     return {
       ok: false,
       message: `האיחור כבר נרשם לתלמידה זו היום (בשעה ${existingLateToday.time}), אין צורך לרשום פעם נוספת.`,
+    };
+  }
+
+  const existingReleaseToday = await prisma.attendanceEvent.findFirst({
+    where: { studentId, type: 'RELEASE', date },
+  });
+  if (existingReleaseToday) {
+    return {
+      ok: false,
+      message: `לא ניתן לסמן איחור: התלמידה כבר שוחררה היום (בשעה ${existingReleaseToday.time}).`,
     };
   }
 
@@ -97,6 +107,7 @@ export async function markLate(studentId: string): Promise<ActionResult> {
     const updateData: Record<string, unknown> = {
       totalLateCount: { increment: 1 },
       cycleLateCount: newCycleCount,
+      ...(approved ? { totalLateApprovedCount: { increment: 1 } } : { totalLateUnapprovedCount: { increment: 1 } }),
     };
     const crossingIntoAssignment = newCycleCount === ASSIGNMENT_THRESHOLD;
     const crossingIntoBlocked = newCycleCount === ASSIGNMENT_THRESHOLD + 1;
@@ -110,7 +121,15 @@ export async function markLate(studentId: string): Promise<ActionResult> {
     }
 
     await tx.attendanceEvent.create({
-      data: { studentId, type: 'LATE', date, time, overflow: newCycleCount > ASSIGNMENT_THRESHOLD, semesterId },
+      data: {
+        studentId,
+        type: 'LATE',
+        date,
+        time,
+        overflow: newCycleCount > ASSIGNMENT_THRESHOLD,
+        semesterId,
+        lateApproved: approved,
+      },
     });
     const updatedStudent = await tx.student.update({ where: { id: studentId }, data: updateData });
     return { updatedStudent, justBlocked: crossingIntoBlocked };
@@ -189,6 +208,8 @@ export async function removeAttendanceEvents(studentId: string, eventIds: string
   if (events.length === 0) return { ok: false, message: 'לא נמצאו אירועים להסרה.' };
 
   const lateCount = events.filter((e) => e.type === 'LATE').length;
+  const lateApprovedCount = events.filter((e) => e.type === 'LATE' && e.lateApproved === true).length;
+  const lateUnapprovedCount = events.filter((e) => e.type === 'LATE' && e.lateApproved === false).length;
   const absenceCount = events.filter((e) => e.type === 'ABSENCE').length;
   const releaseCount = events.filter((e) => e.type === 'RELEASE').length;
   const newCycleLateCount = Math.max(0, student.cycleLateCount - lateCount);
@@ -199,6 +220,8 @@ export async function removeAttendanceEvents(studentId: string, eventIds: string
       where: { id: studentId },
       data: {
         totalLateCount: Math.max(0, student.totalLateCount - lateCount),
+        totalLateApprovedCount: Math.max(0, student.totalLateApprovedCount - lateApprovedCount),
+        totalLateUnapprovedCount: Math.max(0, student.totalLateUnapprovedCount - lateUnapprovedCount),
         totalAbsenceCount: Math.max(0, student.totalAbsenceCount - absenceCount),
         totalReleaseCount: Math.max(0, student.totalReleaseCount - releaseCount),
         cycleLateCount: newCycleLateCount,

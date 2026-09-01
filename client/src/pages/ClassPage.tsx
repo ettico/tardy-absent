@@ -39,12 +39,13 @@ export default function ClassPage() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  async function handleAction(studentId: string, action: 'late' | 'absence' | 'release') {
-    const key = `${studentId}:${action}`;
+  async function handleAction(studentId: string, action: 'late' | 'absence' | 'release', approved?: boolean) {
+    const key = action === 'late' ? `${studentId}:late:${approved ? 'approved' : 'unapproved'}` : `${studentId}:${action}`;
     if (pendingActions.has(key)) return;
     setPendingActions((prev) => new Set(prev).add(key));
     try {
-      const res = await api.post(`/students/${studentId}/${action}`, scopeParams);
+      const body = action === 'late' ? { approved, ...scopeParams } : scopeParams;
+      const res = await api.post(`/students/${studentId}/${action}`, body);
       if (res.data.ok === false) {
         showToast(res.data.message ?? 'הפעולה לא בוצעה', true);
       } else if (res.data.message) {
@@ -102,6 +103,9 @@ export default function ClassPage() {
         <div className="action-buttons">
           <Link to={`/reports/class/${classRoom.id}/print`} className="btn btn-outline" target="_blank">
             דוח סיכום איחורים וחיסורים
+          </Link>
+          <Link to={`/reports/class/${classRoom.id}/lateness`} className="btn btn-outline" target="_blank">
+            דוח איחורים (עם/ללא אישור)
           </Link>
           <Link to={`/reports/class/${classRoom.id}/booklet`} className="btn btn-outline" target="_blank">
             חוברת מפורטת למורה
@@ -209,11 +213,12 @@ function StudentRow({
 }: {
   student: Student;
   canEdit: boolean;
-  onAction: (studentId: string, action: 'late' | 'absence' | 'release') => void;
+  onAction: (studentId: string, action: 'late' | 'absence' | 'release', approved?: boolean) => void;
   onSubmitAssignment: (studentId: string) => void;
   pendingActions: Set<string>;
 }) {
-  const isPending = (action: 'late' | 'absence' | 'release') => pendingActions.has(`${student.id}:${action}`);
+  const isPending = (action: 'absence' | 'release') => pendingActions.has(`${student.id}:${action}`);
+  const isPendingLate = (approved: boolean) => pendingActions.has(`${student.id}:late:${approved ? 'approved' : 'unapproved'}`);
   const isSubmittingAssignment = pendingActions.has(`${student.id}:submit-assignment`);
   return (
     <div className="student-row">
@@ -250,10 +255,17 @@ function StudentRow({
         <div className="action-buttons">
           <button
             className="btn btn-late btn-sm"
-            disabled={isPending('late')}
-            onClick={() => onAction(student.id, 'late')}
+            disabled={isPendingLate(true)}
+            onClick={() => onAction(student.id, 'late', true)}
           >
-            איחור
+            איחור מאושר
+          </button>
+          <button
+            className="btn btn-late btn-late-unapproved btn-sm"
+            disabled={isPendingLate(false)}
+            onClick={() => onAction(student.id, 'late', false)}
+          >
+            איחור לא מאושר
           </button>
           <button
             className="btn btn-absence btn-sm"

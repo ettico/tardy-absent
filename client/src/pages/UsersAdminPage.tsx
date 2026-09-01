@@ -1,9 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import { api, apiErrorMessage } from '../api/client';
 import { useInstitution } from '../context/InstitutionContext';
 import Modal from '../components/Modal';
 import PasswordInput from '../components/PasswordInput';
-import type { AppUser } from '../types';
+import type { AppUser, Institution } from '../types';
 
 const ROLE_LABELS: Record<string, string> = { SECRETARY: 'מזכירה', PRINCIPAL: 'מנהלת בית ספר' };
 
@@ -13,6 +13,7 @@ export default function UsersAdminPage() {
   const [showAddInstitution, setShowAddInstitution] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [editingInstitution, setEditingInstitution] = useState<Institution | null>(null);
 
   function loadUsers() {
     api.get<AppUser[]>('/users').then((res) => setUsers(res.data));
@@ -40,10 +41,22 @@ export default function UsersAdminPage() {
       </div>
       <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '2rem' }}>
         {institutions.length === 0 && <p className="empty-note">אין עדיין מוסדות במערכת.</p>}
-        <ul style={{ margin: 0, paddingRight: '1.2rem' }}>
+        <ul style={{ margin: 0, paddingRight: '1.2rem', listStyle: 'none' }}>
           {institutions.map((inst) => (
-            <li key={inst.id}>
-              {inst.name} ({inst._count?.grades ?? 0} שכבות, {inst._count?.users ?? 0} משתמשות)
+            <li key={inst.id} className="action-buttons" style={{ padding: '0.35rem 0' }}>
+              {inst.logoDataUrl && (
+                <img
+                  src={inst.logoDataUrl}
+                  alt={inst.name}
+                  style={{ height: 28, width: 28, objectFit: 'contain', borderRadius: 6 }}
+                />
+              )}
+              <span>
+                {inst.name} ({inst._count?.grades ?? 0} שכבות, {inst._count?.users ?? 0} משתמשות)
+              </span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditingInstitution(inst)}>
+                עדכון פרטים / לוגו
+              </button>
             </li>
           ))}
         </ul>
@@ -124,22 +137,55 @@ export default function UsersAdminPage() {
           }}
         />
       )}
+      {editingInstitution && (
+        <EditInstitutionModal
+          institution={editingInstitution}
+          onClose={() => setEditingInstitution(null)}
+          onUpdated={() => {
+            setEditingInstitution(null);
+            refreshInstitutions();
+          }}
+        />
+      )}
     </div>
   );
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
 function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState('');
   const [initialYearLabel, setInitialYearLabel] = useState('');
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_LOGO_BYTES) {
+      setError('התמונה גדולה מדי, יש לבחור קובץ עד 2MB');
+      return;
+    }
+    setError('');
+    setLogoDataUrl(await readFileAsDataUrl(file));
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await api.post('/institutions', { name, initialYearLabel });
+      await api.post('/institutions', { name, initialYearLabel, logoDataUrl: logoDataUrl ?? undefined });
       onCreated();
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -159,6 +205,13 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
           <label>שנת לימודים נוכחית (למשל תשפ״ו) - אופציונלי</label>
           <input value={initialYearLabel} onChange={(e) => setInitialYearLabel(e.target.value)} />
         </div>
+        <div className="form-field">
+          <label>לוגו המוסד (אופציונלי, עד 2MB) - יוצג למשתמשות המוסד לאחר התחברות</label>
+          <input type="file" accept="image/*" onChange={handleLogoChange} />
+          {logoDataUrl && (
+            <img src={logoDataUrl} alt="תצוגה מקדימה" style={{ height: 48, marginTop: '0.5rem', borderRadius: 6 }} />
+          )}
+        </div>
         {error && <p className="error-text">{error}</p>}
         <div className="modal-actions">
           <button type="button" className="btn btn-ghost" onClick={onClose}>
@@ -166,6 +219,82 @@ function AddInstitutionModal({ onClose, onCreated }: { onClose: () => void; onCr
           </button>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             הוספה
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function EditInstitutionModal({
+  institution,
+  onClose,
+  onUpdated,
+}: {
+  institution: Institution;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const [name, setName] = useState(institution.name);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null | undefined>(undefined);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const previewLogo = logoDataUrl === undefined ? institution.logoDataUrl : logoDataUrl;
+
+  async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_LOGO_BYTES) {
+      setError('התמונה גדולה מדי, יש לבחור קובץ עד 2MB');
+      return;
+    }
+    setError('');
+    setLogoDataUrl(await readFileAsDataUrl(file));
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      await api.patch(`/institutions/${institution.id}`, { name, ...(logoDataUrl !== undefined ? { logoDataUrl } : {}) });
+      onUpdated();
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal title={`עדכון פרטי ${institution.name}`} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div className="form-field">
+          <label>שם המוסד</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} autoFocus required />
+        </div>
+        <div className="form-field">
+          <label>לוגו המוסד (עד 2MB)</label>
+          {previewLogo && (
+            <div style={{ marginBottom: '0.5rem' }}>
+              <img src={previewLogo} alt="לוגו נוכחי" style={{ height: 48, borderRadius: 6 }} />
+            </div>
+          )}
+          <input type="file" accept="image/*" onChange={handleLogoChange} />
+          {previewLogo && (
+            <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: '0.4rem' }} onClick={() => setLogoDataUrl(null)}>
+              הסרת לוגו
+            </button>
+          )}
+        </div>
+        {error && <p className="error-text">{error}</p>}
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            ביטול
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            שמירה
           </button>
         </div>
       </form>

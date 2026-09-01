@@ -29,20 +29,53 @@ router.get('/', asyncHandler(async (_req, res) => {
   res.json(institutions);
 }));
 
-const createSchema = z.object({ name: z.string().min(2), initialYearLabel: z.string().optional() });
+const MAX_LOGO_DATA_URL_LENGTH = 3_000_000; // ~2MB image, base64-inflated
+
+const logoField = z
+  .string()
+  .refine((v) => v.startsWith('data:image/'), 'הקובץ שהועלה אינו תמונה תקינה')
+  .refine((v) => v.length <= MAX_LOGO_DATA_URL_LENGTH, 'התמונה גדולה מדי, יש להעלות עד 2MB')
+  .optional();
+
+const createSchema = z.object({
+  name: z.string().min(2),
+  initialYearLabel: z.string().optional(),
+  logoDataUrl: logoField,
+});
 
 router.post('/', asyncHandler(async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'יש להזין שם מוסד תקין' });
+    return res.status(400).json({ error: parsed.error.errors[0]?.message ?? 'יש להזין שם מוסד תקין' });
   }
   const institution = await prisma.institution.create({
-    data: { name: parsed.data.name, currentYearLabel: parsed.data.initialYearLabel || null },
+    data: {
+      name: parsed.data.name,
+      currentYearLabel: parsed.data.initialYearLabel || null,
+      logoDataUrl: parsed.data.logoDataUrl || null,
+    },
   });
   await prisma.semester.create({
     data: { institutionId: institution.id, yearLabel: parsed.data.initialYearLabel || '', term: 1 },
   });
   res.status(201).json(institution);
+}));
+
+const updateSchema = z.object({
+  name: z.string().min(2).optional(),
+  logoDataUrl: z.union([logoField, z.null()]).optional(),
+});
+
+router.patch('/:id', asyncHandler(async (req, res) => {
+  const parsed = updateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.errors[0]?.message ?? 'פרטים לא תקינים' });
+  }
+  const institution = await prisma.institution.findUnique({ where: { id: req.params.id } });
+  if (!institution) return res.status(404).json({ error: 'מוסד לא נמצא' });
+
+  const updated = await prisma.institution.update({ where: { id: institution.id }, data: parsed.data });
+  res.json(updated);
 }));
 
 export default router;

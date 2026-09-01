@@ -4,6 +4,7 @@ import { requireAuth, requireRole, resolveInstitutionId } from '../middleware/au
 import { sendAsExcel } from '../utils/excelExport';
 import { toHebrewDateString, toHebrewMonthKey } from '../utils/hebrewDate';
 import { asyncHandler } from '../utils/asyncHandler';
+import { compareByFamilyName, sortByFamilyName } from '../utils/names';
 
 const router = Router();
 router.use(requireAuth);
@@ -34,7 +35,7 @@ router.get('/class/:classId', anyStaffRole, asyncHandler(async (req, res) => {
     return res.status(403).json({ error: 'אין הרשאה' });
   }
 
-  const rows = classRoom.students.map((s) => ({
+  const rows = sortByFamilyName(classRoom.students).map((s) => ({
     fullName: s.fullName,
     nationalId: s.nationalId,
     totalLateCount: s.totalLateCount,
@@ -88,7 +89,7 @@ router.get('/class/:classId/booklet', anyStaffRole, asyncHandler(async (req, res
   }
 
   const studentsWithHebrewDates = await Promise.all(
-    classRoom.students.map(async (s) => ({
+    sortByFamilyName(classRoom.students).map(async (s) => ({
       fullName: s.fullName,
       nationalId: s.nationalId,
       totalLateCount: s.totalLateCount,
@@ -146,8 +147,9 @@ router.get('/at-risk', managementOnly, asyncHandler(async (req, res) => {
   const students = await prisma.student.findMany({
     where: { assignmentsRequired: { gt: 0 }, classRoom: { archived: false, grade: { institutionId } } },
     include: { classRoom: { include: { grade: true } } },
-    orderBy: [{ classRoom: { grade: { order: 'asc' } } }, { fullName: 'asc' }],
+    orderBy: [{ classRoom: { grade: { order: 'asc' } } }],
   });
+  students.sort((a, b) => a.classRoom.grade.order - b.classRoom.grade.order || compareByFamilyName(a, b));
 
   const rows = students.map((s) => ({
     fullName: s.fullName,
@@ -298,6 +300,72 @@ router.get('/class/:classId/by-month', managementOnly, asyncHandler(async (req, 
     .map(([, value]) => value);
 
   res.json({ className: classRoom.name, gradeName: classRoom.grade.name, months });
+}));
+
+// Lateness report for a class - per-student approved vs. unapproved late
+// counts, plus a monthly breakdown for the whole class this semester.
+router.get('/class/:classId/lateness', anyStaffRole, asyncHandler(async (req, res) => {
+  const institutionId = resolveInstitutionId(req);
+  const classRoom = await prisma.classRoom.findUnique({
+    where: { id: req.params.classId },
+    include: { grade: true, students: true },
+  });
+  if (!classRoom) return res.status(404).json({ error: 'כיתה לא נמצאה' });
+  if (institutionId && classRoom.grade.institutionId !== institutionId) {
+    return res.status(403).json({ error: 'אין הרשאה' });
+  }
+
+  const rows = sortByFamilyName(classRoom.students).map((s) => ({
+    fullName: s.fullName,
+    nationalId: s.nationalId,
+    totalLateApprovedCount: s.totalLateApprovedCount,
+    totalLateUnapprovedCount: s.totalLateUnapprovedCount,
+    totalLateCount: s.totalLateCount,
+  }));
+
+  const currentSemester = await prisma.semester.findFirst({
+    where: { institutionId: classRoom.grade.institutionId, endedAt: null },
+  });
+  const lateEvents = currentSemester
+    ? await prisma.attendanceEvent.findMany({
+        where: { semesterId: currentSemester.id, type: 'LATE', student: { classId: classRoom.id } },
+      })
+    : [];
+
+  const byMonth = new Map<number, { label: string; approved: number; unapproved: number }>();
+  for (const event of lateEvents) {
+    const { label, sortKey } = await toHebrewMonthKey(event.date);
+    if (!byMonth.has(sortKey)) byMonth.set(sortKey, { label, approved: 0, unapproved: 0 });
+    const entry = byMonth.get(sortKey)!;
+    if (event.lateApproved) entry.approved += 1;
+    else entry.unapproved += 1;
+  }
+  const months = Array.from(byMonth.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, value]) => value);
+
+  if (req.query.format === 'xlsx') {
+    return sendAsExcel(
+      res,
+      `דוח-איחורים-${classRoom.name}.xlsx`,
+      [
+        { header: 'שם התלמידה', key: 'fullName', width: 24 },
+        { header: 'ת.ז.', key: 'nationalId', width: 14 },
+        { header: 'איחורים עם אישור', key: 'totalLateApprovedCount', width: 16 },
+        { header: 'איחורים ללא אישור', key: 'totalLateUnapprovedCount', width: 18 },
+        { header: 'סה"כ איחורים', key: 'totalLateCount', width: 14 },
+      ],
+      rows
+    );
+  }
+
+  res.json({
+    className: classRoom.name,
+    gradeName: classRoom.grade.name,
+    generatedAt: new Date().toISOString(),
+    students: rows,
+    months,
+  });
 }));
 
 export default router;

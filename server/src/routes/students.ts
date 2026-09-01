@@ -138,12 +138,16 @@ router.post('/class/:classId/import', requireRole('SYSTEM_ADMIN', 'SECRETARY'), 
   res.status(201).json({ imported: toCreate.length });
 }));
 
+const lateSchema = z.object({ approved: z.boolean() });
+
 router.post('/:id/late', requireRole('SYSTEM_ADMIN', 'SECRETARY'), asyncHandler(async (req, res) => {
   const institutionId = resolveInstitutionId(req);
   const student = await studentInScope(req.params.id, institutionId);
   if (!student) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
+  const parsed = lateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'יש לציין האם האיחור עם אישור או ללא אישור' });
   try {
-    const result = await markLate(student.id);
+    const result = await markLate(student.id, parsed.data.approved);
     res.json(result);
   } catch (err) {
     if (err instanceof NotFoundError) return res.status(404).json({ error: 'תלמידה לא נמצאה' });
