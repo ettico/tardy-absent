@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
 import Breadcrumbs from '../components/Breadcrumbs';
+import TrashIcon from '../components/icons/TrashIcon';
 import type { ClassRoom, Student } from '../types';
 
 export default function ClassPage() {
@@ -121,7 +122,12 @@ export default function ClassPage() {
               <button className="btn btn-ghost" onClick={() => setShowRenameClass(true)}>
                 עדכון שם כיתה
               </button>
-              <button className="btn btn-danger" onClick={handleDeleteClass}>
+              <button
+                className="btn btn-danger"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                onClick={handleDeleteClass}
+              >
+                <TrashIcon size={15} />
                 מחיקת כיתה
               </button>
             </>

@@ -3,6 +3,7 @@ import { api, apiErrorMessage } from '../api/client';
 import { useInstitution } from '../context/InstitutionContext';
 import Modal from '../components/Modal';
 import PasswordInput from '../components/PasswordInput';
+import TrashIcon from '../components/icons/TrashIcon';
 import type { AppUser, Institution } from '../types';
 
 const ROLE_LABELS: Record<string, string> = { SECRETARY: 'מזכירה', PRINCIPAL: 'מנהלת בית ספר' };
@@ -91,7 +92,12 @@ export default function UsersAdminPage() {
                 <button className="btn btn-outline btn-sm" onClick={() => setEditingUser(u)}>
                   עדכון פרטים
                 </button>
-                <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(u.id)}>
+                <button
+                  className="btn btn-danger btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  onClick={() => handleDeleteUser(u.id)}
+                >
+                  <TrashIcon size={13} />
                   מחיקה
                 </button>
               </td>

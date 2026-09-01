@@ -686,19 +686,6 @@ table.data-table th {
   margin-top: 0.1rem;
 }
 
-.reduce-event-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.25rem;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-.reduce-event-row:last-child {
-  border-bottom: none;
-}
-
 .donut-wrap {
   display: flex;
   flex-direction: column;

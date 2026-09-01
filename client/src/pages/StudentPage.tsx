@@ -6,10 +6,23 @@ import { useScopeParams } from '../hooks/useScope';
 import Modal from '../components/Modal';
 import Breadcrumbs from '../components/Breadcrumbs';
 import DonutChart from '../components/charts/DonutChart';
+import TrashIcon from '../components/icons/TrashIcon';
 import { toHebrewDateString } from '../utils/hebrewDate';
-import type { Student } from '../types';
+import type { AttendanceEvent, Student } from '../types';
 
 const EVENT_LABELS: Record<string, string> = { LATE: 'איחור', ABSENCE: 'חיסור', RELEASE: 'שחרור' };
+const REDUCE_LABELS: Record<'LATE' | 'ABSENCE' | 'RELEASE', string> = {
+  LATE: 'איחורים',
+  ABSENCE: 'חיסורים',
+  RELEASE: 'שחרורים',
+};
+
+function eventTypeLabel(event: AttendanceEvent): string {
+  if (event.type === 'LATE') {
+    return `${EVENT_LABELS.LATE} (${event.lateApproved ? 'עם אישור' : 'ללא אישור'})`;
+  }
+  return EVENT_LABELS[event.type];
+}
 const LATE_COLOR = '#d6a44a';
 const ABSENCE_COLOR = '#c0525f';
 const RELEASE_COLOR = '#0f8f82';
@@ -26,7 +39,9 @@ export default function StudentPage() {
   const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
-  const [reduceType, setReduceType] = useState<'LATE' | 'ABSENCE' | null>(null);
+  const [reduceMode, setReduceMode] = useState<'LATE' | 'ABSENCE' | 'RELEASE' | null>(null);
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [reducing, setReducing] = useState(false);
 
   const canEdit = user?.role === 'SYSTEM_ADMIN' || user?.role === 'SECRETARY';
 
@@ -77,6 +92,48 @@ export default function StudentPage() {
     navigate(`/classes/${student.classId}`);
   }
 
+  function startReduce(type: 'LATE' | 'ABSENCE' | 'RELEASE') {
+    setReduceMode(type);
+    setSelectedEventIds(new Set());
+  }
+
+  function cancelReduce() {
+    setReduceMode(null);
+    setSelectedEventIds(new Set());
+  }
+
+  function toggleSelectedEvent(eventId: string) {
+    setSelectedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  }
+
+  async function handleConfirmReduce() {
+    if (!student || !reduceMode || selectedEventIds.size === 0) return;
+    const typeLabel = REDUCE_LABELS[reduceMode];
+    const confirmed = confirm(`האם את בטוחה שברצונך להפחית ${selectedEventIds.size} ${typeLabel} לתלמידה ${student.fullName}?`);
+    if (!confirmed) return;
+
+    setReducing(true);
+    try {
+      const res = await api.post(`/students/${student.id}/events/remove`, {
+        eventIds: Array.from(selectedEventIds),
+        ...scopeParams,
+      });
+      if (res.data.ok === false) showToast(res.data.message ?? 'הפעולה לא בוצעה', true);
+      else showToast(res.data.message ?? 'ההפחתה בוצעה בהצלחה.');
+      load();
+    } catch (err) {
+      showToast(apiErrorMessage(err), true);
+    } finally {
+      setReducing(false);
+      cancelReduce();
+    }
+  }
+
   if (loading) return <p className="spinner-note">טוענת נתונים...</p>;
   if (!student) return <p className="error-text">תלמידה לא נמצאה</p>;
 
@@ -103,7 +160,8 @@ export default function StudentPage() {
             <button className="btn btn-outline" onClick={() => setShowEdit(true)}>
               עדכון פרטים
             </button>
-            <button className="btn btn-danger" onClick={handleDelete}>
+            <button className="btn btn-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }} onClick={handleDelete}>
+              <TrashIcon size={15} />
               מחיקת תלמידה
             </button>
           </div>
@@ -186,20 +244,6 @@ export default function StudentPage() {
             </button>
           </div>
         )}
-        {canEdit && (student.totalLateCount > 0 || student.totalAbsenceCount > 0) && (
-          <div className="action-buttons" style={{ marginTop: '0.75rem' }}>
-            {student.totalLateCount > 0 && (
-              <button className="btn btn-outline btn-sm" onClick={() => setReduceType('LATE')}>
-                הורדת איחורים
-              </button>
-            )}
-            {student.totalAbsenceCount > 0 && (
-              <button className="btn btn-outline btn-sm" onClick={() => setReduceType('ABSENCE')}>
-                הורדת חיסורים
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem' }}>
@@ -229,9 +273,67 @@ export default function StudentPage() {
       </div>
 
       <h2 style={{ color: 'var(--primary-dark)', fontSize: '1.1rem' }}>היסטוריית אירועים</h2>
+
+      {canEdit && (
+        <div className="action-buttons" style={{ marginBottom: '0.75rem' }}>
+          <button
+            className="btn btn-outline btn-sm"
+            disabled={!!reduceMode || student.totalLateCount === 0}
+            onClick={() => startReduce('LATE')}
+          >
+            הורדת איחורים
+          </button>
+          <button
+            className="btn btn-outline btn-sm"
+            disabled={!!reduceMode || student.totalAbsenceCount === 0}
+            onClick={() => startReduce('ABSENCE')}
+          >
+            הורדת חיסורים
+          </button>
+          <button
+            className="btn btn-outline btn-sm"
+            disabled={!!reduceMode || student.totalReleaseCount === 0}
+            onClick={() => startReduce('RELEASE')}
+          >
+            הורדת שחרורים
+          </button>
+        </div>
+      )}
+
+      {reduceMode && (
+        <div
+          className="card"
+          style={{
+            padding: '0.75rem 1rem',
+            marginBottom: '0.75rem',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>סמני V ליד ה{REDUCE_LABELS[reduceMode]} שברצונך להפחית בטבלה למטה.</span>
+          <div className="action-buttons">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={cancelReduce}>
+              ביטול
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              disabled={reducing || selectedEventIds.size === 0}
+              onClick={handleConfirmReduce}
+            >
+              הפחתת {selectedEventIds.size || ''} {REDUCE_LABELS[reduceMode]}
+            </button>
+          </div>
+        </div>
+      )}
+
       <table className="data-table">
         <thead>
           <tr>
+            {reduceMode && <th></th>}
             <th>תאריך</th>
             <th>שעה</th>
             <th>סוג</th>
@@ -240,17 +342,28 @@ export default function StudentPage() {
         <tbody>
           {(student.events ?? []).map((event) => (
             <tr key={event.id}>
+              {reduceMode && (
+                <td>
+                  {event.type === reduceMode && (
+                    <input
+                      type="checkbox"
+                      checked={selectedEventIds.has(event.id)}
+                      onChange={() => toggleSelectedEvent(event.id)}
+                    />
+                  )}
+                </td>
+              )}
               <td>{toHebrewDateString(event.date)}</td>
               <td>{event.time ?? '-'}</td>
               <td>
-                {EVENT_LABELS[event.type]}
+                {eventTypeLabel(event)}
                 {event.overflow && ' (מעבר למכסה - נספר במחצית בלבד)'}
               </td>
             </tr>
           ))}
           {(student.events ?? []).length === 0 && (
             <tr>
-              <td colSpan={3} className="empty-note">
+              <td colSpan={reduceMode ? 4 : 3} className="empty-note">
                 אין עדיין אירועים רשומים.
               </td>
             </tr>
@@ -265,19 +378,6 @@ export default function StudentPage() {
           onClose={() => setShowEdit(false)}
           onUpdated={() => {
             setShowEdit(false);
-            load();
-          }}
-        />
-      )}
-      {reduceType && (
-        <ReduceEventsModal
-          student={student}
-          type={reduceType}
-          scopeParams={scopeParams}
-          onClose={() => setReduceType(null)}
-          onReduced={(message) => {
-            setReduceType(null);
-            showToast(message);
             load();
           }}
         />
@@ -342,84 +442,3 @@ function EditStudentModal({
   );
 }
 
-function ReduceEventsModal({
-  student,
-  type,
-  scopeParams,
-  onClose,
-  onReduced,
-}: {
-  student: Student;
-  type: 'LATE' | 'ABSENCE';
-  scopeParams: { institutionId?: string };
-  onClose: () => void;
-  onReduced: (message: string) => void;
-}) {
-  const events = (student.events ?? []).filter((e) => e.type === type);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const typeLabel = type === 'LATE' ? 'איחורים' : 'חיסורים';
-
-  function toggle(eventId: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(eventId)) next.delete(eventId);
-      else next.add(eventId);
-      return next;
-    });
-  }
-
-  async function handleConfirm() {
-    if (selected.size === 0) return;
-    const confirmed = confirm(`האם ברצונך להפחית ${typeLabel} (${selected.size}) לתלמידה ${student.fullName}?`);
-    if (!confirmed) return;
-
-    setSaving(true);
-    setError('');
-    try {
-      const res = await api.post(`/students/${student.id}/events/remove`, {
-        eventIds: Array.from(selected),
-        ...scopeParams,
-      });
-      if (res.data.ok === false) {
-        setError(res.data.message ?? 'הפעולה לא בוצעה');
-      } else {
-        onReduced(res.data.message ?? 'ההפחתה בוצעה בהצלחה.');
-      }
-    } catch (err) {
-      setError(apiErrorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal title={`הורדת ${typeLabel} - ${student.fullName}`} onClose={onClose}>
-      <p className="empty-note">בחרי את התאריכים שברצונך להסיר. הפעולה תפחית גם מסך המחצית וגם ממחזור ה-8 (עבור איחורים).</p>
-      {events.length === 0 ? (
-        <p className="empty-note">אין תאריכים להצגה.</p>
-      ) : (
-        <div style={{ maxHeight: 260, overflowY: 'auto', marginBottom: '1rem' }}>
-          {events.map((event) => (
-            <label key={event.id} className="reduce-event-row">
-              <input type="checkbox" checked={selected.has(event.id)} onChange={() => toggle(event.id)} />
-              {toHebrewDateString(event.date)}
-              {event.time && ` בשעה ${event.time}`}
-            </label>
-          ))}
-        </div>
-      )}
-      {error && <p className="error-text">{error}</p>}
-      <div className="modal-actions">
-        <button type="button" className="btn btn-ghost" onClick={onClose}>
-          ביטול
-        </button>
-        <button type="button" className="btn btn-danger" disabled={saving || selected.size === 0} onClick={handleConfirm}>
-          הפחתת {selected.size || ''} {typeLabel}
-        </button>
-      </div>
-    </Modal>
-  );
-}
