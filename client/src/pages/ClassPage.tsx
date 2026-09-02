@@ -91,7 +91,7 @@ export default function ClassPage() {
     navigate('/');
   }
 
-  if (loading) return <p className="spinner-note">טוענת נתונים...</p>;
+  if (loading && !classRoom) return <p className="spinner-note">טוענת נתונים...</p>;
   if (!classRoom) return <p className="error-text">כיתה לא נמצאה</p>;
 
   return (

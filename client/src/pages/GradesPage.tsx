@@ -28,7 +28,7 @@ export default function GradesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeParams.institutionId]);
 
-  if (loading) return <p className="spinner-note">טוענת נתונים...</p>;
+  if (loading && grades.length === 0) return <p className="spinner-note">טוענת נתונים...</p>;
 
   return (
     <div>

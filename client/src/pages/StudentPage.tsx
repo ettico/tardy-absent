@@ -141,7 +141,7 @@ export default function StudentPage() {
     }
   }
 
-  if (loading) return <p className="spinner-note">טוענת נתונים...</p>;
+  if (loading && !student) return <p className="spinner-note">טוענת נתונים...</p>;
   if (!student) return <p className="error-text">תלמידה לא נמצאה</p>;
 
   const assignmentsOwed = student.assignmentsRequired - student.assignmentsSubmitted;
