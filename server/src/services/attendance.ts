@@ -2,6 +2,7 @@ import { prisma } from '../prismaClient';
 import { todayDateString, nowTimeString } from '../utils/dates';
 import { sendEmail } from '../utils/email';
 import { getOrCreateCurrentSemesterId } from './semester';
+import { resolvePeriodsMissed } from './schedule';
 
 const ASSIGNMENT_THRESHOLD = 8;
 
@@ -100,6 +101,7 @@ export async function markLate(studentId: string, approved: boolean): Promise<Ac
   }
 
   const institutionId = await getInstitutionIdForStudent(studentId);
+  const periodsMissed = await resolvePeriodsMissed(institutionId, student.classId, date, time, 'late');
   let wasAbsenceConverted = false;
 
   const result = await prisma.$transaction(async (tx) => {
@@ -118,6 +120,7 @@ export async function markLate(studentId: string, approved: boolean): Promise<Ac
       totalLateCount: { increment: 1 },
       cycleLateCount: newCycleCount,
       ...(approved ? { totalLateApprovedCount: { increment: 1 } } : { totalLateUnapprovedCount: { increment: 1 } }),
+      ...(periodsMissed ? { totalPeriodsMissed: { increment: periodsMissed } } : {}),
     };
     const crossingIntoAssignment = newCycleCount === ASSIGNMENT_THRESHOLD;
     const crossingIntoBlocked = newCycleCount === ASSIGNMENT_THRESHOLD + 1;
@@ -139,6 +142,7 @@ export async function markLate(studentId: string, approved: boolean): Promise<Ac
         overflow: newCycleCount > ASSIGNMENT_THRESHOLD,
         semesterId,
         lateApproved: approved,
+        periodsMissed,
       },
     });
     const updatedStudent = await tx.student.update({ where: { id: studentId }, data: updateData });
@@ -180,11 +184,18 @@ export async function markRelease(studentId: string): Promise<ActionResult> {
 
   const time = nowTimeString();
   const institutionId = await getInstitutionIdForStudent(studentId);
+  const periodsMissed = await resolvePeriodsMissed(institutionId, student.classId, date, time, 'release');
 
   await prisma.$transaction(async (tx) => {
     const semesterId = await getOrCreateCurrentSemesterId(tx, institutionId);
-    await tx.attendanceEvent.create({ data: { studentId, type: 'RELEASE', date, time, semesterId } });
-    await tx.student.update({ where: { id: studentId }, data: { totalReleaseCount: { increment: 1 } } });
+    await tx.attendanceEvent.create({ data: { studentId, type: 'RELEASE', date, time, semesterId, periodsMissed } });
+    await tx.student.update({
+      where: { id: studentId },
+      data: {
+        totalReleaseCount: { increment: 1 },
+        ...(periodsMissed ? { totalPeriodsMissed: { increment: periodsMissed } } : {}),
+      },
+    });
   });
   return { ok: true, message: 'השחרור עודכן בהצלחה.' };
 }
@@ -222,6 +233,7 @@ export async function removeAttendanceEvents(studentId: string, eventIds: string
   const lateUnapprovedCount = events.filter((e) => e.type === 'LATE' && e.lateApproved === false).length;
   const absenceCount = events.filter((e) => e.type === 'ABSENCE').length;
   const releaseCount = events.filter((e) => e.type === 'RELEASE').length;
+  const periodsMissedRemoved = events.reduce((sum, e) => sum + (e.periodsMissed ?? 0), 0);
   const newCycleLateCount = Math.max(0, student.cycleLateCount - lateCount);
 
   await prisma.$transaction(async (tx) => {
@@ -234,6 +246,7 @@ export async function removeAttendanceEvents(studentId: string, eventIds: string
         totalLateUnapprovedCount: Math.max(0, student.totalLateUnapprovedCount - lateUnapprovedCount),
         totalAbsenceCount: Math.max(0, student.totalAbsenceCount - absenceCount),
         totalReleaseCount: Math.max(0, student.totalReleaseCount - releaseCount),
+        totalPeriodsMissed: Math.max(0, student.totalPeriodsMissed - periodsMissedRemoved),
         cycleLateCount: newCycleLateCount,
         needsAssignment: newCycleLateCount >= ASSIGNMENT_THRESHOLD,
         blocked: newCycleLateCount > ASSIGNMENT_THRESHOLD,

@@ -12,6 +12,7 @@ interface LatenessStudent {
   totalLateApprovedCount: number;
   totalLateUnapprovedCount: number;
   totalLateCount: number;
+  totalPeriodsMissed: number;
 }
 
 interface MonthRow {
@@ -63,6 +64,7 @@ export default function LatenessReportPage() {
             <th>איחורים עם אישור</th>
             <th>איחורים ללא אישור</th>
             <th>סה"כ איחורים</th>
+            <th>סה"כ חיסורי שעות</th>
           </tr>
         </thead>
         <tbody>
@@ -73,11 +75,12 @@ export default function LatenessReportPage() {
               <td>{s.totalLateApprovedCount}</td>
               <td>{s.totalLateUnapprovedCount}</td>
               <td>{s.totalLateCount}</td>
+              <td>{s.totalPeriodsMissed}</td>
             </tr>
           ))}
           {report.students.length === 0 && (
             <tr>
-              <td colSpan={5} className="empty-note">
+              <td colSpan={6} className="empty-note">
                 אין תלמידות בכיתה זו.
               </td>
             </tr>

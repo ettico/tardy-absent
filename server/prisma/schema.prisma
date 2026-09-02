@@ -25,6 +25,24 @@ model Institution {
   grades            Grade[]
   semesters         Semester[]
   calendarOverrides CalendarOverride[]
+  schedulePeriods   SchedulePeriod[]
+}
+
+// The institution's bell schedule - one row per lesson period, shared by
+// every class and every weekday. The gap between one period's endTime and
+// the next one's startTime is a break and doesn't need its own row. Only
+// how MANY of these periods apply to a given class on a given day varies
+// (see ClassDaySchedule) - the clock times themselves are school-wide.
+model SchedulePeriod {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  periodNumber  Int
+  startTime     String // 'HH:mm'
+  endTime       String // 'HH:mm'
+
+  @@unique([institutionId, periodNumber])
+  @@index([institutionId])
 }
 
 // An explicit study/non-study override for one date, for one institution -
@@ -52,16 +70,16 @@ model CalendarOverride {
 // semester's events remain in place (tagged by semesterId) as the archive -
 // nothing is ever deleted.
 model Semester {
-  id            String        @id @default(cuid())
-  institutionId String
-  institution   Institution   @relation(fields: [institutionId], references: [id])
-  yearLabel     String // e.g. "תשפ״ו"
-  term          Int // 1 or 2
-  startedAt     DateTime      @default(now())
-  endedAt       DateTime?
-  plannedEndDate String? // 'YYYY-MM-DD' - expected end date, set by the institution so study-day-based indicators have a fixed denominator
+  id                 String            @id @default(cuid())
+  institutionId      String
+  institution        Institution       @relation(fields: [institutionId], references: [id])
+  yearLabel          String // e.g. "תשפ״ו"
+  term               Int // 1 or 2
+  startedAt          DateTime          @default(now())
+  endedAt            DateTime?
+  plannedEndDate     String? // 'YYYY-MM-DD' - expected end date, set by the institution so study-day-based indicators have a fixed denominator
   nextPlannedEndDate String? // 'YYYY-MM-DD' - pre-set expected end date for the NEXT semester, applied automatically when this one ends (unless overridden then)
-  events        AttendanceEvent[]
+  events             AttendanceEvent[]
 
   @@index([institutionId])
 }
@@ -106,14 +124,30 @@ model ClassRoom {
   archivedAt        DateTime?
   archivedYearLabel String? // the institution's yearLabel at the time of archiving
 
+  daySchedules ClassDaySchedule[]
+
   // Scoped by `archived` too: once a class graduates out, its (gradeId,
   // name) slot must free up so a newly-promoted class can reuse that name
   // (e.g. this year's "יב1" moving into last year's, now-archived, יב1's spot).
   @@unique([gradeId, name, archived])
 }
 
+// How many of the institution's bell-schedule periods this class has on a
+// given weekday (0=Sunday..4=Thursday) - some classes finish earlier than
+// others on the same day. Missing row = not configured yet (no periods-missed
+// computation possible for that class/day until the secretary sets it).
+model ClassDaySchedule {
+  id           String    @id @default(cuid())
+  classId      String
+  classRoom    ClassRoom @relation(fields: [classId], references: [id])
+  weekday      Int // 0=Sunday .. 4=Thursday
+  periodsCount Int
+
+  @@unique([classId, weekday])
+}
+
 model Student {
-  id         String @id @default(cuid())
+  id         String    @id @default(cuid())
   fullName   String
   nationalId String
   classId    String
@@ -125,31 +159,38 @@ model Student {
   totalLateUnapprovedCount Int @default(0) // subset of totalLateCount: late events marked "without permission"
   totalAbsenceCount        Int @default(0)
   totalReleaseCount        Int @default(0)
+  totalPeriodsMissed       Int @default(0) // cumulative lesson periods missed via LATE/RELEASE gaps only (see AttendanceEvent.periodsMissed)
 
   // "cycle" of 8 lates before an assignment is required
-  cycleLateCount        Int     @default(0)
-  needsAssignment       Boolean @default(false)
-  assignmentsRequired   Int     @default(0)
-  assignmentsSubmitted  Int     @default(0)
-  blocked               Boolean @default(false)
+  cycleLateCount       Int     @default(0)
+  needsAssignment      Boolean @default(false)
+  assignmentsRequired  Int     @default(0)
+  assignmentsSubmitted Int     @default(0)
+  blocked              Boolean @default(false)
 
   events    AttendanceEvent[]
   createdAt DateTime          @default(now())
 }
 
 model AttendanceEvent {
-  id         String    @id @default(cuid())
-  studentId  String
-  student    Student   @relation(fields: [studentId], references: [id])
-  type       String // 'LATE' | 'ABSENCE' | 'RELEASE'
-  date       String // YYYY-MM-DD
-  time       String? // HH:mm - relevant for LATE
-  overflow   Boolean   @default(false) // true = a LATE recorded while student is blocked (9th+ in cycle)
-  lateApproved Boolean? // for type='LATE' only: true = with permission, false = without permission
-  semesterId String?
-  semester   Semester? @relation(fields: [semesterId], references: [id])
-  createdBy  String?
-  createdAt  DateTime  @default(now())
+  id            String    @id @default(cuid())
+  studentId     String
+  student       Student   @relation(fields: [studentId], references: [id])
+  type          String // 'LATE' | 'ABSENCE' | 'RELEASE'
+  date          String // YYYY-MM-DD
+  time          String? // HH:mm - relevant for LATE
+  overflow      Boolean   @default(false) // true = a LATE recorded while student is blocked (9th+ in cycle)
+  lateApproved  Boolean? // for type='LATE' only: true = with permission, false = without permission
+  // For type='LATE'/'RELEASE' only: lesson periods missed that day, computed
+  // once from the class's bell schedule at the moment the event was created
+  // and never recalculated - so a later schedule change never rewrites
+  // history. null = not computable (no schedule configured for that
+  // class/day/institution yet at the time).
+  periodsMissed Int?
+  semesterId    String?
+  semester      Semester? @relation(fields: [semesterId], references: [id])
+  createdBy     String?
+  createdAt     DateTime  @default(now())
 
   @@index([semesterId])
 }

@@ -41,6 +41,7 @@ router.get('/class/:classId', anyStaffRole, asyncHandler(async (req, res) => {
     totalLateCount: s.totalLateCount,
     totalAbsenceCount: s.totalAbsenceCount,
     totalReleaseCount: s.totalReleaseCount,
+    totalPeriodsMissed: s.totalPeriodsMissed,
     needsAssignment: s.needsAssignment,
     blocked: s.blocked,
     status: statusLabel(s),
@@ -56,6 +57,7 @@ router.get('/class/:classId', anyStaffRole, asyncHandler(async (req, res) => {
         { header: 'סה"כ איחורים', key: 'totalLateCount', width: 14 },
         { header: 'סה"כ חיסורים', key: 'totalAbsenceCount', width: 14 },
         { header: 'סה"כ שחרורים', key: 'totalReleaseCount', width: 14 },
+        { header: 'סה"כ חיסורי שעות', key: 'totalPeriodsMissed', width: 16 },
         { header: 'סטטוס', key: 'status', width: 22 },
       ],
       rows
@@ -95,6 +97,7 @@ router.get('/class/:classId/booklet', anyStaffRole, asyncHandler(async (req, res
       totalLateCount: s.totalLateCount,
       totalAbsenceCount: s.totalAbsenceCount,
       totalReleaseCount: s.totalReleaseCount,
+      totalPeriodsMissed: s.totalPeriodsMissed,
       status: statusLabel(s),
       events: await Promise.all(
         s.events.map(async (e) => ({
@@ -103,6 +106,7 @@ router.get('/class/:classId/booklet', anyStaffRole, asyncHandler(async (req, res
           date: e.date,
           hebrewDate: await toHebrewDateString(e.date),
           time: e.time,
+          periodsMissed: e.periodsMissed,
         }))
       ),
     }))
@@ -116,6 +120,7 @@ router.get('/class/:classId/booklet', anyStaffRole, asyncHandler(async (req, res
         type: e.typeLabel,
         hebrewDate: e.hebrewDate,
         time: e.time ?? '',
+        periodsMissed: e.periodsMissed ?? '',
       }))
     );
     return sendAsExcel(
@@ -127,6 +132,7 @@ router.get('/class/:classId/booklet', anyStaffRole, asyncHandler(async (req, res
         { header: 'סוג', key: 'type', width: 12 },
         { header: 'תאריך עברי', key: 'hebrewDate', width: 26 },
         { header: 'שעה', key: 'time', width: 10 },
+        { header: 'חיסורי שעות', key: 'periodsMissed', width: 14 },
       ],
       rows
     );
@@ -203,6 +209,7 @@ router.get('/institution-summary', managementOnly, asyncHandler(async (req, res)
       totalLateCount: students.reduce((sum, s) => sum + s.totalLateCount, 0),
       totalAbsenceCount: students.reduce((sum, s) => sum + s.totalAbsenceCount, 0),
       totalReleaseCount: students.reduce((sum, s) => sum + s.totalReleaseCount, 0),
+      totalPeriodsMissed: students.reduce((sum, s) => sum + s.totalPeriodsMissed, 0),
       studentsNeedingAssignment: students.filter((s) => s.assignmentsRequired > 0).length,
       studentsBlocked: students.filter((s) => s.blocked).length,
     };
@@ -214,10 +221,11 @@ router.get('/institution-summary', managementOnly, asyncHandler(async (req, res)
       totalLateCount: acc.totalLateCount + g.totalLateCount,
       totalAbsenceCount: acc.totalAbsenceCount + g.totalAbsenceCount,
       totalReleaseCount: acc.totalReleaseCount + g.totalReleaseCount,
+      totalPeriodsMissed: acc.totalPeriodsMissed + g.totalPeriodsMissed,
       studentsNeedingAssignment: acc.studentsNeedingAssignment + g.studentsNeedingAssignment,
       studentsBlocked: acc.studentsBlocked + g.studentsBlocked,
     }),
-    { studentCount: 0, totalLateCount: 0, totalAbsenceCount: 0, totalReleaseCount: 0, studentsNeedingAssignment: 0, studentsBlocked: 0 }
+    { studentCount: 0, totalLateCount: 0, totalAbsenceCount: 0, totalReleaseCount: 0, totalPeriodsMissed: 0, studentsNeedingAssignment: 0, studentsBlocked: 0 }
   );
 
   if (req.query.format === 'xlsx') {
@@ -230,6 +238,7 @@ router.get('/institution-summary', managementOnly, asyncHandler(async (req, res)
         { header: 'סה"כ איחורים', key: 'totalLateCount', width: 14 },
         { header: 'סה"כ חיסורים', key: 'totalAbsenceCount', width: 14 },
         { header: 'סה"כ שחרורים', key: 'totalReleaseCount', width: 14 },
+        { header: 'סה"כ חיסורי שעות', key: 'totalPeriodsMissed', width: 16 },
         { header: 'תלמידות שנדרשו להגיש עבודה', key: 'studentsNeedingAssignment', width: 22 },
         { header: 'תלמידות ללא רשות כניסה', key: 'studentsBlocked', width: 20 },
       ],
@@ -321,6 +330,7 @@ router.get('/class/:classId/lateness', anyStaffRole, asyncHandler(async (req, re
     totalLateApprovedCount: s.totalLateApprovedCount,
     totalLateUnapprovedCount: s.totalLateUnapprovedCount,
     totalLateCount: s.totalLateCount,
+    totalPeriodsMissed: s.totalPeriodsMissed,
   }));
 
   const currentSemester = await prisma.semester.findFirst({
@@ -354,6 +364,7 @@ router.get('/class/:classId/lateness', anyStaffRole, asyncHandler(async (req, re
         { header: 'איחורים עם אישור', key: 'totalLateApprovedCount', width: 16 },
         { header: 'איחורים ללא אישור', key: 'totalLateUnapprovedCount', width: 18 },
         { header: 'סה"כ איחורים', key: 'totalLateCount', width: 14 },
+        { header: 'סה"כ חיסורי שעות', key: 'totalPeriodsMissed', width: 16 },
       ],
       rows
     );

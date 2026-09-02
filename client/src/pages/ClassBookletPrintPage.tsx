@@ -10,6 +10,7 @@ interface BookletEvent {
   typeLabel: string;
   hebrewDate: string;
   time: string | null;
+  periodsMissed: number | null;
 }
 
 interface BookletStudent {
@@ -18,6 +19,7 @@ interface BookletStudent {
   totalLateCount: number;
   totalAbsenceCount: number;
   totalReleaseCount: number;
+  totalPeriodsMissed: number;
   status: string;
   events: BookletEvent[];
 }
@@ -60,7 +62,8 @@ export default function ClassBookletPrintPage() {
             {s.fullName} <span className="stat-pill">ת.ז. {s.nationalId}</span>
           </h2>
           <p className="stat-pill" style={{ marginBottom: '0.6rem' }}>
-            איחורים: {s.totalLateCount} | חיסורים: {s.totalAbsenceCount} | שחרורים: {s.totalReleaseCount}
+            איחורים: {s.totalLateCount} | חיסורים: {s.totalAbsenceCount} | שחרורים: {s.totalReleaseCount} | חיסורי
+            שעות: {s.totalPeriodsMissed}
             {s.status && ` | ${s.status}`}
           </p>
           {s.events.length === 0 ? (
@@ -72,6 +75,7 @@ export default function ClassBookletPrintPage() {
                   <th>תאריך עברי</th>
                   <th>שעה</th>
                   <th>סוג</th>
+                  <th>חיסורי שעות</th>
                 </tr>
               </thead>
               <tbody>
@@ -80,6 +84,7 @@ export default function ClassBookletPrintPage() {
                     <td>{e.hebrewDate}</td>
                     <td>{e.time ?? '-'}</td>
                     <td>{e.typeLabel}</td>
+                    <td>{e.periodsMissed ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -217,6 +217,7 @@ export default function StudentPage() {
           <span className="stat-pill">מתוכם ללא אישור: {student.totalLateUnapprovedCount}</span>
           <span className="stat-pill">סה"כ חיסורים במחצית: {student.totalAbsenceCount}</span>
           <span className="stat-pill">סה"כ שחרורים במחצית: {student.totalReleaseCount}</span>
+          <span className="stat-pill">סה"כ חיסורי שעות במחצית: {student.totalPeriodsMissed}</span>
           <span className="stat-pill">איחורים במחזור הנוכחי: {student.cycleLateCount}/8</span>
         </div>
         {canEdit && (
@@ -350,6 +351,7 @@ export default function StudentPage() {
             <th>תאריך</th>
             <th>שעה</th>
             <th>סוג</th>
+            <th>חיסורי שעות</th>
           </tr>
         </thead>
         <tbody>
@@ -372,11 +374,12 @@ export default function StudentPage() {
                 {eventTypeLabel(event)}
                 {event.overflow && ' (מעבר למכסה - נספר במחצית בלבד)'}
               </td>
+              <td>{event.periodsMissed ?? '-'}</td>
             </tr>
           ))}
           {(student.events ?? []).length === 0 && (
             <tr>
-              <td colSpan={reduceMode ? 4 : 3} className="empty-note">
+              <td colSpan={reduceMode ? 5 : 4} className="empty-note">
                 אין עדיין אירועים רשומים.
               </td>
             </tr>

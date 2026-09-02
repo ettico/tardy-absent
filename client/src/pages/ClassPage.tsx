@@ -281,6 +281,7 @@ function StudentRow({
         <span className="stat-pill">איחורים: {student.totalLateCount}</span>
         <span className="stat-pill">חיסורים: {student.totalAbsenceCount}</span>
         <span className="stat-pill">שחרורים: {student.totalReleaseCount}</span>
+        <span className="stat-pill">חיסורי שעות: {student.totalPeriodsMissed}</span>
       </div>
       {canEdit && (
         <div className="action-buttons">

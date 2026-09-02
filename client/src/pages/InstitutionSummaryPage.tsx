@@ -10,6 +10,7 @@ interface GradeSummary {
   totalLateCount: number;
   totalAbsenceCount: number;
   totalReleaseCount: number;
+  totalPeriodsMissed: number;
   studentsNeedingAssignment: number;
   studentsBlocked: number;
 }
@@ -52,6 +53,7 @@ export default function InstitutionSummaryPage() {
               <th>סה"כ איחורים</th>
               <th>סה"כ חיסורים</th>
               <th>סה"כ שחרורים</th>
+              <th>סה"כ חיסורי שעות</th>
               <th>נדרשו להגיש עבודה</th>
               <th>ללא רשות כניסה</th>
             </tr>
@@ -64,6 +66,7 @@ export default function InstitutionSummaryPage() {
                 <td>{g.totalLateCount}</td>
                 <td>{g.totalAbsenceCount}</td>
                 <td>{g.totalReleaseCount}</td>
+                <td>{g.totalPeriodsMissed}</td>
                 <td>{g.studentsNeedingAssignment}</td>
                 <td>{g.studentsBlocked}</td>
               </tr>
@@ -74,6 +77,7 @@ export default function InstitutionSummaryPage() {
               <td>{totals.totalLateCount}</td>
               <td>{totals.totalAbsenceCount}</td>
               <td>{totals.totalReleaseCount}</td>
+              <td>{totals.totalPeriodsMissed}</td>
               <td>{totals.studentsNeedingAssignment}</td>
               <td>{totals.studentsBlocked}</td>
             </tr>

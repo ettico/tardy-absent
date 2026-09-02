@@ -48,6 +48,7 @@ export interface Student {
   totalLateUnapprovedCount: number;
   totalAbsenceCount: number;
   totalReleaseCount: number;
+  totalPeriodsMissed: number;
   cycleLateCount: number;
   needsAssignment: boolean;
   assignmentsRequired: number;
@@ -65,6 +66,7 @@ export interface AttendanceEvent {
   time: string | null;
   overflow: boolean;
   lateApproved: boolean | null;
+  periodsMissed: number | null;
   createdAt: string;
 }
 

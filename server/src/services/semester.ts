@@ -24,8 +24,11 @@ async function resetStudentCounters(tx: Tx, institutionId: string) {
     where: { classRoom: { archived: false, grade: { institutionId } } },
     data: {
       totalLateCount: 0,
+      totalLateApprovedCount: 0,
+      totalLateUnapprovedCount: 0,
       totalAbsenceCount: 0,
       totalReleaseCount: 0,
+      totalPeriodsMissed: 0,
       cycleLateCount: 0,
       needsAssignment: false,
       assignmentsRequired: 0,

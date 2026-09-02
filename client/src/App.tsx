@@ -16,6 +16,7 @@ import AtRiskReportPage from './pages/AtRiskReportPage';
 import InstitutionSummaryPage from './pages/InstitutionSummaryPage';
 import SchoolYearPage from './pages/SchoolYearPage';
 import CalendarPage from './pages/CalendarPage';
+import SchedulePage from './pages/SchedulePage';
 import ArchivePage from './pages/ArchivePage';
 import ArchiveClassDetailPage from './pages/ArchiveClassDetailPage';
 import ArchiveSemesterDetailPage from './pages/ArchiveSemesterDetailPage';
@@ -109,6 +110,14 @@ export default function App() {
               element={
                 <RequireAuth roles={['SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL']}>
                   <CalendarPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/school-year/schedule"
+              element={
+                <RequireAuth roles={['SYSTEM_ADMIN', 'SECRETARY', 'PRINCIPAL']}>
+                  <SchedulePage />
                 </RequireAuth>
               }
             />

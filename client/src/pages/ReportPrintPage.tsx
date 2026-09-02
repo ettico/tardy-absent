@@ -12,6 +12,7 @@ interface ReportStudent {
   totalLateCount: number;
   totalAbsenceCount: number;
   totalReleaseCount: number;
+  totalPeriodsMissed: number;
   needsAssignment: boolean;
   blocked: boolean;
 }
@@ -57,6 +58,7 @@ export default function ReportPrintPage() {
             <th>סה"כ איחורים</th>
             <th>סה"כ חיסורים</th>
             <th>סה"כ שחרורים</th>
+            <th>סה"כ חיסורי שעות</th>
             <th>סטטוס</th>
           </tr>
         </thead>
@@ -68,6 +70,7 @@ export default function ReportPrintPage() {
               <td>{s.totalLateCount}</td>
               <td>{s.totalAbsenceCount}</td>
               <td>{s.totalReleaseCount}</td>
+              <td>{s.totalPeriodsMissed}</td>
               <td>
                 {s.blocked ? 'אין רשות כניסה' : s.needsAssignment ? 'נדרשת להגיש עבודה' : ''}
               </td>

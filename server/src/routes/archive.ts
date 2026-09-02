@@ -54,6 +54,7 @@ router.get('/classes/:id', asyncHandler(async (req, res) => {
       totalLateCount: s.totalLateCount,
       totalAbsenceCount: s.totalAbsenceCount,
       totalReleaseCount: s.totalReleaseCount,
+      totalPeriodsMissed: s.totalPeriodsMissed,
     })),
   });
 }));

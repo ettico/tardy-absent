@@ -12,6 +12,7 @@ import searchRoutes from './routes/search';
 import semesterRoutes from './routes/semesters';
 import archiveRoutes from './routes/archive';
 import calendarRoutes from './routes/calendar';
+import scheduleRoutes from './routes/schedule';
 
 const app = express();
 app.use(cors());
@@ -30,6 +31,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/semesters', semesterRoutes);
 app.use('/api/archive', archiveRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/schedule', scheduleRoutes);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

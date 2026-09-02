@@ -38,6 +38,17 @@ export default function SchoolYearPage() {
       <PlannedEndDateCard institution={institution} scopeParams={scopeParams} onUpdated={loadInstitution} />
 
       <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
+        <h2 style={{ marginTop: 0, fontSize: '1.05rem', color: 'var(--primary-dark)' }}>מערכת שעות ופעמונים</h2>
+        <p className="empty-note">
+          הגדרת שעות הפעמונים ומספר השיעורים ליום לכל כיתה - נדרש כדי שהמערכת תוכל לחשב "חיסורי שעות" לתלמידה
+          שהגיעה באיחור או השתחררה מוקדם.
+        </p>
+        <Link to="/school-year/schedule" className="btn btn-outline">
+          פתיחת מערכת שעות
+        </Link>
+      </div>
+
+      <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
         <h2 style={{ marginTop: 0, fontSize: '1.05rem', color: 'var(--primary-dark)' }}>סיום מחצית</h2>
         <p className="empty-note">
           פעולה זו מעבירה את נתוני האיחורים/חיסורים/שחרורים הנוכחיים לארכיון, ומאפסת את המונים של כלל התלמידות
